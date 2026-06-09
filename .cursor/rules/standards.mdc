@@ -1,0 +1,17 @@
+---
+description: Project standards for Solo Clash of Code
+globs:
+  - '**/*'
+alwaysApply: true
+---
+
+Follow the canonical standards in `AGENTS.md` and the plan in `PLAN.md`.
+
+- No magic numbers — use `src/config/constants.ts`. No raw style strings in
+  components — use `src/theme/ui.ts`.
+- Strict TypeScript/ESLint; no `any`, dead code, silent fallbacks, or
+  placeholder/fake code.
+- Quality gates must pass and must not be bypassed: `npm run quality`
+  (and `npm run quality:ci` for Lighthouse; SEO excluded).
+- Update `CHANGELOG.md` and `PLAN.md` with real, verified status only.
+- `/caveman` status updates: short, direct, no filler.

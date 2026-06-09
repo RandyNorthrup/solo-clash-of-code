@@ -1,0 +1,356 @@
+# Changelog
+
+All notable code changes to this project are tracked here. This is the running
+record of **what actually changed** — update it in the same commit as the code.
+
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
+and this project aims to follow [Semantic Versioning](https://semver.org/).
+
+## [Unreleased]
+
+### Added — Milestone 10: deployment
+
+- `src/vite-env.d.ts` (new): declares `ImportMetaEnv.VITE_JUDGE0_URL?: string`
+  and `ImportMeta.env` so TypeScript has a typed view of the Vite env vars.
+- `src/config/constants.ts`: renamed `JUDGE0_BASE_URL` → `JUDGE0_PROXY_PATH` to
+  clarify it is only the Vite dev-proxy path, not a production URL.
+- `src/judge/judge0.ts`: module-level `judgeBaseUrl` now branches on
+  `import.meta.env.PROD`. In production builds `VITE_JUDGE0_URL` (trailing
+  slashes stripped) is inlined at build time by Vite; in development the proxy
+  path (`/judge0`) is always used so browser CORS is not triggered. The
+  connectivity error message is context-aware: dev shows the `judge0:up` hint;
+  prod shows CORS/URL guidance.
+- `README.md`: new **Deployment** section covering `npm run build`, static
+  hosting, Judge0 CORS requirement, `VITE_JUDGE0_URL` build-time injection, SPA
+  fallback, and a deployment checklist. Updated features count (51 puzzles),
+  scripts table (added `test:coverage`), project structure, and env-vars table.
+- `.env.example`: annotated with development vs. production semantics for
+  `VITE_JUDGE0_URL`.
+
+### Added — Milestone 9: CI coverage gate
+
+- `vitest.config.ts` now declares a `coverage` block: `provider: 'v8'`, `include`
+  scoped to 9 pure-logic source files (`time.ts`, `grade.ts`, `availability.ts`,
+  `history.ts`, `scores/store.ts`, `drafts/store.ts`, `puzzles/store.ts`,
+  `io.ts`, `local.ts`), and `thresholds: { statements: 90, branches: 80,
+functions: 90, lines: 90 }`. Measured aggregate: Stmts 98.17% · Branches
+  90.98% · Functions 100% · Lines 99.5%.
+- `.github/workflows/ci.yml` updated: adds `npm run test:coverage` step between
+  `npm run quality` and `npm run lighthouse`, enforcing the coverage threshold on
+  every push and PR.
+- `coverage/` added to `.prettierignore` and ESLint `globalIgnores` so the
+  generated HTML/JS coverage report does not trigger lint or format failures.
+
+### Added — Milestone 8: content scale & sharing
+
+- **Puzzle bank expanded to 51** (was 27). Added 24 new puzzles across all
+  five difficulty tiers (10 beginner, 10 easy, 11 medium, 10 hard, 10 expert).
+  New reference helpers added to `generate-puzzles.mjs`: `runLengthDecode`,
+  `numWords`, `primeFactors`, `luhnCheck`. All expected outputs computed by
+  reference solvers; drift test still passes.
+  New puzzle IDs: `is-even`, `absolute-value`, `min-two`, `count-chars`,
+  `celsius-to-fahrenheit`, `palindrome-check`, `repeat-string`, `min-in-list`,
+  `sum-squares`, `sum-digits`, `lcm`, `average`, `count-occurrences`,
+  `missing-number`, `is-prime`, `anagram-check`, `triangle-type`,
+  `number-to-words`, `two-sum-exists`, `matrix-trace`, `run-length-decode`,
+  `prime-factors`, `luhn-check`, `rotate-array`.
+- `src/puzzles/io.ts`: pure import/export utilities. `exportPuzzlesJson`
+  serialises puzzles to `{ version: 1, puzzles: [...] }` JSON. `importPuzzlesJson`
+  validates the schema with type guards (`isPuzzleShape`, `isTestCase`,
+  `isDifficulty`), throws with a descriptive message on any mismatch, and
+  forces `source: 'user'` on all imported puzzles. `encodePuzzleForUrl` /
+  `decodePuzzleFromUrl` encode/decode a single puzzle as a URL-safe base64url
+  string for share links.
+- `src/pages/SharePage.tsx` at `/share?p=<b64url>`: decodes the puzzle on
+  mount using a `useState` lazy initialiser (avoids `setState` inside effects),
+  saves it via `saveUserPuzzle`, and redirects with `replace: true` to
+  `/solve/:id`. Shows an explicit error banner rather than a silent fallback
+  when the link is malformed.
+- `HomePage`: three new toolbar actions — **Export JSON** (downloads
+  `my-puzzles.json` of all user puzzles), **Import JSON** (file input that
+  validates and batch-saves puzzles, shows a success/error banner), **Share**
+  button on each custom puzzle card (copies the `/share?p=...` URL to
+  clipboard, flips to "Copied!" for 2 s using `COPY_FEEDBACK_DURATION_MS`).
+- New constants: `PUZZLE_EXPORT_SCHEMA_VERSION`, `COPY_FEEDBACK_DURATION_MS`,
+  `JSON_INDENT_SPACES`.
+- New route constant `ROUTES.share` and query-param constant
+  `PUZZLE_SHARE_PARAM` in `routes.ts`.
+
+### Tests
+
+- +11 tests (79 total): `src/puzzles/io.test.ts` — export/import round-trip,
+  forced `'user'` source, order preservation, invalid JSON, wrong top-level
+  shape, wrong version, malformed puzzle entry, URL encode/decode round-trip,
+  URL-safe output, invalid base64, decoded shape validation.
+
+### Added — Milestone 7: stats, history & streaks
+
+- `src/scores/history.ts`: append-only solve log persisted in `localStorage`
+  (`STORAGE_KEY_SOLVE_HISTORY`). Public API: `appendSolve`, `getSolveHistory`,
+  `getRecentTimesForPuzzle`, `computeTierStats`, `computeLanguageUsage`,
+  `computeStreakDays`. Streak uses UTC date keys (`YYYY-M-D`) for
+  timezone-safe consecutive-day calculation.
+- `src/components/Sparkline.tsx`: SVG polyline showing the last
+  `SPARKLINE_MAX_POINTS` solve times for a puzzle. Green stroke when the trend
+  is improving (last < first), blue otherwise. Returns `null` when fewer than
+  `SPARKLINE_MIN_POINTS` data points are available. Rendered below the puzzle
+  constraints on `SolvePage`.
+- `src/pages/StatsPage.tsx`: `/stats` route with a "By difficulty" tier grid
+  (solve count, best time, median time per tier) and a "Languages" horizontal
+  bar chart. Empty-state message with a link to the puzzle browser when no
+  history exists. Streak and total solve count shown in the toolbar.
+- `SolvePage`: calls `appendSolve` on each successful solve (all cases pass)
+  and refreshes the sparkline via `getRecentTimesForPuzzle`.
+- `src/routes.ts`: `stats: '/stats'` added.
+- `src/App.tsx`: `StatsPage` route added.
+- `src/components/Layout.tsx`: "Stats" nav link added.
+- New constants in `constants.ts`: `STORAGE_KEY_SOLVE_HISTORY`,
+  `SPARKLINE_MAX_POINTS`, `SPARKLINE_MIN_POINTS`, `SPARKLINE_SVG_WIDTH`,
+  `SPARKLINE_SVG_HEIGHT`, `HALF_DIVISOR`, `PERCENT_FACTOR`.
+- New styled tokens in `ui.ts`: `statsSection`, `statsGrid`, `statsCard`,
+  `statNumber`, `statLabel`, `statBest`, `statMedian`, `statsBars`,
+  `statBarRow`, `statBarLabel`, `statBarBg`, `statBarFill`, `statBarCount`,
+  `sparklineWrap`, `sparklineLabel`.
+
+### Tests
+
+- +18 tests (68 total): `src/scores/history.test.ts` (16 tests — all
+  aggregation functions, UTC streak edge cases, SPARKLINE_MAX_POINTS cap);
+  `src/pages/StatsPage.test.tsx` (2 tests — empty state + populated render).
+
+### Added — Milestone 6: parallel & resilient execution
+
+- `runBatch` in `src/judge/judge0.ts`: submits all cases in one
+  `POST /submissions/batch` call and polls `GET /submissions/batch` until every
+  token is terminal. Results returned in original request order (matched by
+  token). `runSubmission` removed (dead code after `gradeAll` switched to batch).
+- `JUDGE0_BATCH_SIZE = 20` in `constants.ts`: concurrency cap; `gradeAll`
+  processes test cases in chunks of at most this size.
+- Retry-once on transient `INTERNAL_ERROR`: cases that return this status are
+  re-submitted as a sub-batch; the retried result replaces the first.
+- `AbortController` wired from `SolveWorkspace` through `gradeAll` into
+  `runBatch` fetch calls and inter-poll `sleep`. Fires on workspace unmount
+  (navigation away), propagated as `DOMException('AbortError')` and swallowed
+  without an error banner. Sleep is abort-aware: cancels the `setTimeout`
+  immediately rather than waiting for the next poll cycle.
+
+### Tests
+
+- +3 tests (50 total): retry-once logic (`runBatch` called twice, retried result
+  wins); AbortError propagation from `gradeAll`; abort silences the error banner
+  in `SolvePage`.
+
+### Added — Milestone 5: grading fidelity & UX polish
+
+- Per-case output checkers: `TestCase.match` = `exact` | `trimmed` (default) |
+  `tokens` | `float`; `compareOutputs` in `src/judge/grade.ts` with a
+  `FLOAT_MATCH_EPSILON` tolerance. Two new puzzles use them: `sort-numbers`
+  (tokens) and `circle-area` (float) — bank now 27.
+- Distinct failure categories: `ErrorKind`
+  (compile/runtime/timeout/internal) mapped from Judge0 status and surfaced in
+  `TestCaseList` (timeout in amber via new `testStatusTimeout` token).
+- `components/Console.tsx`: failing-visible-case panel on `SolvePage` (expected
+  vs got, or error kind + detail).
+- "Reset" button (restore template) and `Ctrl/Cmd+Enter` to run sample cases.
+- Accessibility: associated form labels were added earlier; this milestone keeps
+  Lighthouse at 100 / 94 / 100.
+
+### Tests
+
+- +11 tests (47 total): `compareOutputs` for all four modes, `errorKind`
+  mapping, and a `Console` component test. `npm run test:e2e` now also solves the
+  float-checked `circle-area` with a typed Python solution (live float check).
+
+### Added — Quality, security & CI hardening (setup-spec alignment)
+
+- Dead-code detection: **knip** (`npm run deadcode`, `knip.json`); removed real
+  dead code it found — unused constants (`MINUTES_PER_HOUR`,
+  `MILLIS_DISPLAY_DIGITS`, `DEFAULT_LANGUAGE_KEY`) and unused type exports
+  (`CaseOutcome`, `Judge0Status`, `PuzzleSource` un-exported).
+- Security: `npm run security:audit` (`npm audit --omit=dev --audit-level=high`,
+  0 high/critical). Accepted+documented the moderate monaco→dompurify advisory
+  (not bundled; CDN-loaded). `.env.example` added; `VITE_JUDGE0_URL` validated in
+  `vite.config.ts`.
+- Aggregate gates: `npm run quality` (typecheck + lint + format + deadcode +
+  audit + tests + build) and `npm run quality:ci` (+ Lighthouse). Replaced the
+  ad-hoc `gate` script. Added `test:unit` / `test:e2e` aliases.
+- CI: `.github/workflows/ci.yml` (GitHub Actions, Node 22) running `quality` +
+  Lighthouse. Live Judge0 gates excluded from CI (cgroup-v1 requirement).
+- Agent instruction files: `AGENTS.md` (canonical), `CLAUDE.md`,
+  `.github/copilot-instructions.md`, `.cursor/rules/standards.mdc`.
+- PLAN.md expanded with assumptions, open questions, dependency-verification,
+  security gates, performance gates, and definition of done.
+- Removed the earlier global user-memory file (relocated to project-local
+  `AGENTS.md`/`CLAUDE.md`) to honor the "no global memory without approval" rule.
+
+### Added — Test & scan harness (Milestone T)
+
+- Vitest + jsdom + React Testing Library; `test`, `test:run`, `test:coverage`
+  scripts; tests folded into `npm run check`.
+- `src/test/setup.ts`: jest-dom matchers, in-memory `localStorage` polyfill,
+  per-test cleanup.
+- **36 tests** across 9 files: `utils/time`, `judge/grade` (mocked Judge0),
+  `judge/availability` (all 15 language patterns), `scores`/`drafts`/`puzzles`
+  stores, generator **no-drift + well-formed** integrity, and component tests for
+  `SolvePage` (submit→best-time / failure) and `NewPuzzlePage` (validation/save).
+- `scripts/verify-judge0.mjs` (`npm run verify:judge0`) — live execution
+  smoke test against a running Judge0 (the live arm of certification C2).
+- **Lighthouse CI** (`@lhci/cli`, `lighthouserc.json`, `npm run lighthouse`):
+  asserts Performance ≥ 0.85, Accessibility ≥ 0.90, Best-Practices ≥ 0.90;
+  **SEO excluded**. Recorded scores: Perf 100 · A11y 94 · Best-Practices 100.
+- `npm run gate` = `check` + `lighthouse` (the full certification gate).
+
+### Added — Visual harness (C8)
+
+- `scripts/screenshots.mjs` (`npm run screenshots`): Playwright via system Chrome
+  captures Home, Solve, and New Puzzle at desktop (1440) and mobile (390) widths
+  to `screenshots/` for visual review and regression diffing.
+
+### Changed — UX (from visual review)
+
+- Left-aligned puzzle-card titles (were center-aligned by the button default) and
+  added a hover color so they read as clickable.
+- Solve page: merged the two redundant offline error banners into one clear
+  message, with the raw Judge0 error shown parenthetically.
+
+### Added — Accessibility
+
+- Associated `<label>`s (`htmlFor`/`id`) for all puzzle-editor fields and
+  `aria-label`s for dynamic test-case inputs.
+
+### Changed — Tooling
+
+- `tsconfig.app.json` includes `node` types (test files use `node:` modules);
+  added a test-file ESLint override (literal fixtures, mocks, vitest mock idiom).
+
+### Added — Live walkthrough (C1/C2)
+
+- `scripts/walkthrough.mjs` (`npm run walkthrough`): drives a real solve through
+  the dev server → Judge0 (Echo, default Python template), asserts the success
+  banner, and saves `screenshots/solve-solved.png`.
+
+### Certification
+
+- **All milestones to date are certified.** With Judge0 running on cgroup v1:
+  `npm run verify:judge0` → 5/5 Accepted (Python, JS, Ruby, C++, Go);
+  `npm run walkthrough` solved Echo end-to-end (3/3 cases passed, best time
+  recorded). 14/15 languages resolve live (Zig absent in CE, correctly
+  excluded). M1, M3, M4 moved from built → **certified**; M0, M2 already
+  certified. See [PLAN.md](PLAN.md) ledger.
+
+### Environment
+
+- Judge0 1.13.1 requires **cgroup v1**. On this Docker Desktop (cgroup v2)
+  every submission returned `Internal Error`; fixed by setting
+  `deprecatedCgroupv1: true` in Docker Desktop settings and restarting the
+  daemon. Documented in README troubleshooting.
+
+### Process
+
+- Added **C8 — Visual verification** to the certification standard: UI-affecting
+  milestones must have their screens rendered and visually reviewed (screenshots
+  via a planned Playwright `npm run screenshots` harness, with optional
+  regression diffing). Non-UI milestones (M2) are exempt. M3/M4 certification now
+  also lists the pending visual check.
+- Introduced a **Milestone Certification Standard** in [PLAN.md](PLAN.md): every
+  milestone must be tested after completion and pass C1–C6 (functional, tested &
+  verified, quality gate green, production-grade, no fallbacks/legacy/dead code,
+  documented) before it is "done". Reclassified M1–M4 from done to **built —
+  not yet certified**; added **Milestone T** (test harness) as the immediate
+  next step so they can be certified.
+
+### Changed
+
+- Renamed `MONACO_FALLBACK` → `MONACO_DEFAULT_GRAMMAR` in `SolvePage` to reflect
+  that it is an intentional default (plaintext highlighting for languages with
+  no Monaco grammar), not an error-masking fallback.
+
+### Planned
+
+- See [PLAN.md](PLAN.md) for upcoming milestones (test harness, custom output
+  checkers, stats dashboard, parallel grading, deployment).
+
+---
+
+## [0.1.0] — 2026-06-08
+
+Initial working build: a single-player Clash of Code with live multi-language
+execution, two play modes, a 25-puzzle bank across 5 difficulty tiers, and a
+puzzle editor. Strict TypeScript/ESLint/Prettier from day one.
+
+### Added — Tooling & project setup
+
+- Scaffolded Vite 8 + React 19 + TypeScript project.
+- Tailwind CSS v4 via `@tailwindcss/vite`; dark IDE-style global theme.
+- Vite dev proxy `/judge0 → http://localhost:2358` (configurable with
+  `VITE_JUDGE0_URL`).
+- `docker-compose.yml` + `judge0.conf` for a self-hosted Judge0 CE sandbox
+  (server, workers, Postgres, Redis).
+- npm scripts: `typecheck`, `lint`, `lint:fix`, `format`, `format:check`,
+  `check`, `puzzles:generate`, `judge0:up`, `judge0:down`.
+
+### Added — Quality gates
+
+- Strictest TypeScript options (`strict`, `noUncheckedIndexedAccess`,
+  `exactOptionalPropertyTypes`, `noImplicitReturns`, `noImplicitOverride`,
+  `noPropertyAccessFromIndexSignature`, …) in `tsconfig.app.json` /
+  `tsconfig.node.json`.
+- ESLint flat config with `strictTypeChecked` + `stylisticTypeChecked`,
+  `no-explicit-any`, `no-non-null-assertion`, `consistent-type-imports`, and
+  `no-magic-numbers` (exempted only in `src/config/constants.ts`).
+- Prettier config + ignore; `eslint-config-prettier` to avoid rule conflicts.
+
+### Added — Architecture & conventions
+
+- `src/config/constants.ts` — every named constant (timing, limits, storage
+  keys, editor defaults); the only place raw numbers live.
+- `src/theme/ui.ts` — every styled class string as a named constant; components
+  never inline raw classes. Difficulty-keyed badge colors.
+- `src/routes.ts` — centralized route paths and query-param helpers.
+
+### Added — Execution & grading (Judge0)
+
+- `src/judge/languages.ts` — 15 supported languages with Monaco grammar ids,
+  Judge0 name-match patterns, and per-language stdin/stdout starter templates.
+- `src/judge/judge0.ts` — Judge0 REST client (create-then-poll submissions,
+  status enum, resource limits, friendly connectivity errors).
+- `src/judge/availability.ts` + `useLanguages.ts` — resolve supported languages
+  against the live Judge0 instance and cache the result.
+- `src/judge/grade.ts` — run a solution against test cases, normalize output,
+  classify each case as pass / fail / error, incremental progress callback.
+
+### Added — Puzzles
+
+- `src/puzzles/types.ts` — `Puzzle` / `TestCase` types, 5 `Difficulty` tiers
+  (beginner → expert) with labels.
+- `scripts/generate-puzzles.mjs` — generator that computes expected outputs from
+  reference solutions, producing `src/puzzles/generated.ts` (25 puzzles).
+- `src/puzzles/store.ts` — built-in bank merged with user-authored puzzles.
+- `src/scores/store.ts` — per-puzzle best-time tracking.
+- `src/drafts/store.ts` — per-puzzle, per-language code drafts.
+
+### Added — UI
+
+- `useStopwatch` hook (performance.now()-based, with synchronous read).
+- `utils/time.ts` — stopwatch (`m:ss.t`) and countdown (`mm:ss`) formatting.
+- Components: `Layout`, `Panel`, `CodeEditor` (Monaco), `Clock`,
+  `DifficultyBadge`, `TestCaseList`.
+- `HomePage` — puzzle browser grouped by difficulty, Practice / Beat-the-Clock
+  mode selector, best-time display, delete for custom puzzles.
+- `SolvePage` — statement panel, language picker, Monaco editor, Run/Submit,
+  live per-case results, stopwatch/countdown, best-time recording. Built with a
+  keyed workspace child + derived state to avoid setState-in-effect.
+- `NewPuzzlePage` — authoring form for custom puzzles with dynamic test cases.
+- `App.tsx` — React Router setup with a not-found redirect.
+
+### Added — Docs
+
+- `README.md`, `CHANGELOG.md`, `PLAN.md`.
+
+### Verified
+
+- `npm run check` (typecheck + lint + format) passes clean.
+- `npm run build` succeeds; `npm run dev` serves HTTP 200.
+
+[Unreleased]: https://example.com/compare/v0.1.0...HEAD
+[0.1.0]: https://example.com/releases/tag/v0.1.0

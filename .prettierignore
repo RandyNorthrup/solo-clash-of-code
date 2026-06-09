@@ -1,0 +1,8 @@
+dist
+node_modules
+package-lock.json
+src/puzzles/generated.ts
+.lighthouseci
+screenshots
+initial_project_setup_prompt.md
+coverage
