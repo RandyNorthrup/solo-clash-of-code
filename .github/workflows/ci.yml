@@ -19,8 +19,8 @@ jobs:
       # Coverage threshold gate on pure-logic modules (≥90% stmts/funcs/lines, ≥80% branches).
       # Runs separately so failures report the exact uncovered files.
       - run: npm run test:coverage
-      # Lighthouse (Performance / Accessibility / Best-Practices; SEO excluded).
-      # ubuntu-latest ships Chrome, which lhci uses.
+      # Direct Lighthouse gate (Performance / Accessibility / Best-Practices; SEO excluded).
+      # ubuntu-latest ships Chrome for the local Lighthouse runner.
       - run: npm run lighthouse
 
 # Note: the live execution gates (test:e2e / verify:judge0) are NOT run in CI.

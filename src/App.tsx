@@ -1,5 +1,6 @@
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 import { Layout } from './components/Layout'
+import { AccountPage } from './pages/AccountPage'
 import { HomePage } from './pages/HomePage'
 import { NewPuzzlePage } from './pages/NewPuzzlePage'
 import { SharePage } from './pages/SharePage'
@@ -13,6 +14,7 @@ function App(): React.JSX.Element {
       <Routes>
         <Route element={<Layout />}>
           <Route path={ROUTES.home} element={<HomePage />} />
+          <Route path={ROUTES.account} element={<AccountPage />} />
           <Route path={ROUTES.newPuzzle} element={<NewPuzzlePage />} />
           <Route path={ROUTES.stats} element={<StatsPage />} />
           <Route path={ROUTES.share} element={<SharePage />} />

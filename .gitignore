@@ -31,3 +31,6 @@ screenshots/
 
 # Vitest coverage report
 coverage/
+
+#Misc
+temp/

@@ -28,12 +28,22 @@ output graded against test cases — all in the browser.
   reference solutions (so they're provably consistent).
 - **Monaco editor** (the VS Code editor) with per-language starter templates and
   syntax highlighting.
+- **Clash cockpit UI** — the solve screen follows a dense IDE layout: statement,
+  code, console output, test cases, and actions stay visible as a battle
+  workspace.
+- **Start screen** — choose difficulty first, choose a game mode, then quick
+  play a matching puzzle.
+- **Optional AI puzzles** — Account Setup lets you paste, test, save, and clear
+  an OpenAI API key. Quick Play AI generates an original `gpt-5.5` puzzle for
+  the selected difficulty, validates its samples/hidden tests, and opens it as
+  a session puzzle. If you like it, use **Favorite puzzle** in the solve screen
+  to give it a permanent saved name.
 - **Run vs Submit** — _Run_ checks the visible sample cases; _Submit_ runs all
   cases including hidden ones and records your time on a full pass.
 - **Puzzle editor** — author your own puzzles (statement + stdin/stdout test
   cases) saved in your browser, listed alongside the built-ins.
-- **Local persistence** — best times, custom puzzles, and code drafts are kept
-  in `localStorage`.
+- **Local persistence** — best times, custom puzzles, favorited AI puzzles, and
+  code drafts are kept in `localStorage`.
 
 ---
 
@@ -50,7 +60,7 @@ output graded against test cases — all in the browser.
 | Quality gates  | ESLint (type-checked, strict) + Prettier           |
 
 There is **no custom backend** for development: the Vite dev server proxies
-`/judge0` straight to the Judge0 container.
+`/judge0` to Judge0 and `/openai` to OpenAI for local-only API-key testing.
 
 ---
 
@@ -76,8 +86,9 @@ npm run judge0:up        # docker compose up -d
 npm run dev              # http://localhost:5173
 ```
 
-Open the app, pick a mode, pick a puzzle, and start coding. Press **Run** to
-check the sample cases or **Submit** to run everything and lock in a time.
+Open the app, pick a difficulty, pick a mode, and use **Quick play**. Press
+**Run** to check sample cases or **Submit** to run everything and lock in a
+time.
 
 To stop the sandbox: `npm run judge0:down`.
 
@@ -104,9 +115,10 @@ To stop the sandbox: `npm run judge0:down`.
 | `npm run test` / `test:run`   | Vitest (watch / once)                             |
 | `npm run test:coverage`       | Coverage with thresholds (pure-logic modules)     |
 | `npm run test:e2e`            | Live solve walkthrough (needs Judge0)             |
+| `npm run test:e2e:full`       | Full standard + AI solve/favorite certification   |
 | `npm run deadcode`            | knip — unused files/exports/deps                  |
 | `npm run security:audit`      | `npm audit` gated at high severity                |
-| `npm run lighthouse`          | Build + Lighthouse assertions                     |
+| `npm run lighthouse`          | Build + direct Lighthouse assertions              |
 | `npm run screenshots`         | Capture UI screenshots (visual review)            |
 | `npm run verify:judge0`       | Live per-language execution check (needs Judge0)  |
 | `npm run puzzles:generate`    | Regenerate the puzzle bank from reference solvers |
@@ -128,6 +140,33 @@ reference `solve` functions) in
 [`scripts/generate-puzzles.mjs`](scripts/generate-puzzles.mjs) and run
 `npm run puzzles:generate`.
 
+### AI-generated puzzle quality gate
+
+Quick Play AI uses OpenAI Responses API structured outputs with `gpt-5.5`, low
+reasoning effort / low verbosity for lobby-speed generation, and a strict JSON
+schema. The prompt contract and local validator both enforce:
+
+- selected difficulty must match the generated difficulty
+- statement, input spec, output spec, and constraints must be clear,
+  language-agnostic, printable ASCII, and non-ambiguous
+- input/output specs must define `Line 1`; constraints must include concrete
+  numeric bounds
+- all integer bounds must stay within cross-language safe limits
+- no dates, randomness, files, networking, locale rules, Unicode-only behavior,
+  or language-specific library requirements
+- at least two visible samples, at least one hidden validator, no duplicate
+  inputs, and bounded case sizes
+- float matching only when explicit tolerance wording is present
+- the Python 3 reference solution must compile/run in Judge0, produce
+  non-empty printable bounded output for every case, and pass again after the
+  app canonicalizes expected outputs from its stdout
+- failed candidates are retried with QA feedback; stalled OpenAI requests time
+  out instead of leaving the lobby blocked
+
+Invalid AI output is rejected before it is opened. Generated puzzles remain
+session-only until you favorite and name them; favorite saves them with the same
+local persistence path as authored puzzles.
+
 ---
 
 ## Project structure
@@ -137,14 +176,15 @@ src/
   config/constants.ts     All named constants (no magic numbers elsewhere)
   theme/ui.ts             All styled class constants (no inline styles in components)
   routes.ts               Route paths + query-param helpers
-  vite-env.d.ts           ImportMetaEnv declarations (VITE_JUDGE0_URL)
+  vite-env.d.ts           ImportMetaEnv declarations
+  openai/                 API-key storage, connection test, AI puzzle generator
   judge/                  Judge0 client, language defs, availability, grading
   puzzles/                Types, generated bank, store, io.ts (import/export/share)
   scores/ drafts/         localStorage stores for best times and code drafts
   hooks/                  useStopwatch
   utils/time.ts           Stopwatch / countdown formatting
   components/             Layout, Panel, CodeEditor, Clock, badges, test list
-  pages/                  HomePage, SolvePage, NewPuzzlePage, StatsPage, SharePage
+  pages/                  Home, Account, Solve, NewPuzzle, Stats, Share
 scripts/generate-puzzles.mjs   Puzzle generator (reference-solution verified)
 docker-compose.yml             Judge0 stack
 ```
@@ -171,12 +211,14 @@ Run `npm run quality` before committing (`npm run quality:ci` adds Lighthouse).
 
 ## Environment variables
 
-No secrets are required. See [`.env.example`](.env.example).
+No repository secrets are required. See [`.env.example`](.env.example).
 
-| Variable          | Required | Default                 | Purpose                                                       |
-| ----------------- | -------- | ----------------------- | ------------------------------------------------------------- |
-| `VITE_JUDGE0_URL` | No\*     | `http://localhost:2358` | Dev: Vite proxy target. Prod: browser-facing Judge0 base URL. |
-| `JUDGE0_URL`      | No       | `http://localhost:2358` | Judge0 base URL for `scripts/verify-judge0.mjs`.              |
+| Variable               | Required | Default                  | Purpose                                                       |
+| ---------------------- | -------- | ------------------------ | ------------------------------------------------------------- |
+| `VITE_JUDGE0_URL`      | No\*     | `http://localhost:2358`  | Dev: Vite proxy target. Prod: browser-facing Judge0 base URL. |
+| `JUDGE0_URL`           | No       | `http://localhost:2358`  | Judge0 base URL for `scripts/verify-judge0.mjs`.              |
+| `VITE_OPENAI_BASE_URL` | No       | `https://api.openai.com` | Prod OpenAI-compatible base URL/proxy for Account Setup.      |
+| `VITE_OPENAI_MODEL`    | No       | `gpt-5.5`                | AI puzzle generation model.                                   |
 
 \* Required in production if code execution must work (see Deployment below).
 
@@ -208,6 +250,8 @@ avoid CORS. In production the browser calls Judge0 directly, so you must:
 - [ ] Judge0 reachable over HTTPS from the browser
 - [ ] CORS configured on Judge0 to allow your app's origin
 - [ ] `VITE_JUDGE0_URL` set at `npm run build` time
+- [ ] Optional AI: `VITE_OPENAI_BASE_URL` points to a trusted OpenAI-compatible
+      endpoint if direct browser calls are blocked
 - [ ] `dist/` served; all routes fall back to `index.html` (SPA routing)
 
 ---
@@ -215,11 +259,15 @@ avoid CORS. In production the browser calls Judge0 directly, so you must:
 ## Security notes
 
 - No app backend, no auth, no secrets in the repo; `.env` is git-ignored.
-- `npm run security:audit` gates at **high** severity — currently 0 high/critical.
-- Two _moderate_ `monaco-editor → dompurify` advisories are **accepted**:
-  `monaco-editor` is not in the production bundle (Monaco loads from CDN), and
-  the app renders only the user's own code, so the XSS vectors aren't reachable.
-  Tracked in [PLAN.md](PLAN.md).
+- OpenAI keys are entered in Account Setup, never committed, never exported with
+  puzzles, and can be cleared from the UI. When saved, the key is encrypted with
+  Web Crypto using a non-extractable key stored in IndexedDB, with ciphertext in
+  `localStorage`. This protects at-rest browser storage; it is still a
+  client-side key on that device.
+- `npm run security:audit` gates at **high** severity; full `npm audit` currently
+  reports 0 vulnerabilities.
+- `dompurify` is pinned with npm `overrides` to keep Monaco's transitive
+  sanitizer dependency on a patched version.
 - `VITE_JUDGE0_URL` is validated in `vite.config.ts` (dev) and inlined at build time for production.
 - CI (`.github/workflows/ci.yml`) runs `quality` + Lighthouse on push/PR.
 

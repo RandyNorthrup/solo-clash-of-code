@@ -1,11 +1,15 @@
 import { describe, expect, it } from 'vitest'
 import { BUILTIN_PUZZLES } from './builtin'
 import {
+  deleteTempPuzzle,
   deleteUserPuzzle,
   getAllPuzzles,
   getPuzzleById,
+  getTempPuzzles,
   getUserPuzzles,
+  isTempPuzzle,
   saveUserPuzzle,
+  saveTempPuzzle,
 } from './store'
 import type { Puzzle } from './types'
 
@@ -58,5 +62,25 @@ describe('puzzle store', () => {
     saveUserPuzzle(userPuzzle({ id: 'gone' }))
     deleteUserPuzzle('gone')
     expect(getPuzzleById('gone')).toBeUndefined()
+  })
+
+  it('keeps temporary generated puzzles out of the permanent puzzle list', () => {
+    saveTempPuzzle(userPuzzle({ id: 'ai-temp', title: 'Generated' }))
+
+    expect(getPuzzleById('ai-temp')?.title).toBe('Generated')
+    expect(getTempPuzzles()).toHaveLength(1)
+    expect(isTempPuzzle('ai-temp')).toBe(true)
+    expect(getAllPuzzles().some((puzzle) => puzzle.id === 'ai-temp')).toBe(
+      false,
+    )
+  })
+
+  it('stops treating a generated puzzle as temporary after it is saved', () => {
+    saveTempPuzzle(userPuzzle({ id: 'ai-save', title: 'Generated' }))
+    saveUserPuzzle(userPuzzle({ id: 'ai-save', title: 'Saved Name' }))
+    deleteTempPuzzle('ai-save')
+
+    expect(isTempPuzzle('ai-save')).toBe(false)
+    expect(getPuzzleById('ai-save')?.title).toBe('Saved Name')
   })
 })

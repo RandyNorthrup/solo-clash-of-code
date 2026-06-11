@@ -14,7 +14,7 @@ const PORT = 5173
 const BASE_URL = `http://localhost:${String(PORT)}`
 const SERVER_READY_TIMEOUT_MS = 30_000
 const POLL_MS = 300
-const SUBMIT_TIMEOUT_MS = 90_000
+const SUBMIT_TIMEOUT_MS = 180_000
 const OUTPUT = 'screenshots/solve-solved.png'
 
 async function waitForServer() {
@@ -51,8 +51,11 @@ async function solve(page, puzzleId, code) {
     // Replace the starter template with the given solution.
     await page.locator('.monaco-editor').first().click()
     await page.keyboard.press('ControlOrMeta+A')
-    await page.keyboard.press('Delete')
-    await page.keyboard.type(code)
+    await page.keyboard.press('Backspace')
+    await page.evaluate(async (source) => {
+      await navigator.clipboard.writeText(source)
+    }, code)
+    await page.keyboard.press('ControlOrMeta+V')
   }
 
   await page.getByRole('button', { name: 'Submit' }).click()
@@ -68,9 +71,13 @@ async function main() {
   try {
     await waitForServer()
     browser = await chromium.launch({ channel: 'chrome', headless: true })
-    const page = await browser.newPage({
+    const context = await browser.newContext({
       viewport: { width: 1440, height: 900 },
     })
+    await context.grantPermissions(['clipboard-read', 'clipboard-write'], {
+      origin: BASE_URL,
+    })
+    const page = await context.newPage()
 
     // Echo: default template already solves it (trimmed checker).
     await solve(page, 'echo', null)

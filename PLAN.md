@@ -97,18 +97,16 @@ in a local Judge0 container reached through a dev proxy.
 - Compatibility verified empirically: `npm ci` clean, `tsc -b` clean, `vite
 build` succeeds, full test suite green on the pinned versions in
   `package-lock.json`.
-- Vitest 4 / Playwright (system Chrome) / `@lhci/cli` / knip all run on Node 26
+- Vitest 4 / Playwright (system Chrome) / Lighthouse / knip all run on Node 26
   locally and Node 22 in CI.
 
 ## Security gates
 
-- `npm run security:audit` = `npm audit --omit=dev --audit-level=high`. Currently
-  **0 high/critical**.
-- **Accepted risk:** 2 _moderate_ advisories in `monaco-editor` → `dompurify`.
-  `monaco-editor` is **not** in our production bundle (Monaco is loaded from CDN
-  via `@monaco-editor/loader`), and we render only the user's own code, so the
-  DOMPurify XSS vectors are not reachable in our usage. Re-evaluate when a fixed
-  Monaco is available.
+- `npm run security:audit` = `npm audit --omit=dev --audit-level=high`.
+  `npm audit` also passes with **0 vulnerabilities**.
+- `dompurify` is pinned through `overrides` at 3.4.9 to remove the
+  `monaco-editor` transitive advisories while Monaco upstream keeps a stale
+  dependency pin.
 - No secrets in repo; `.env` git-ignored; vars documented in `.env.example`.
   `VITE_JUDGE0_URL` is validated in `vite.config.ts`.
 
@@ -117,7 +115,7 @@ build` succeeds, full test suite green on the pinned versions in
 - Production build validated each gate (`vite build`). Current bundle ~289 kB
   (~91 kB gzip); Monaco loads lazily from CDN, not bundled.
 - Lighthouse: Performance ≥ 0.85, Accessibility ≥ 0.90, Best-Practices ≥ 0.90
-  (`lighthouserc.json`). Recorded: 100 / 94 / 100. SEO excluded.
+  (`scripts/lighthouse.mjs`). Recorded: 99 / 94 / 100. SEO excluded.
 
 ## Definition of done (per milestone)
 
@@ -139,14 +137,14 @@ Codable actions:
 - ✅ `src/test/setup.ts` (jest-dom matchers, in-memory `localStorage`, cleanup).
 - ✅ `scripts/verify-judge0.mjs` (`npm run verify:judge0`) — the live arm of C2
   for execution (POSTs an echo program per language, asserts stdout).
-- ✅ Lighthouse CI (`@lhci/cli`, `lighthouserc.json`, `npm run lighthouse`,
+- ✅ Lighthouse runner (`scripts/lighthouse.mjs`, `npm run lighthouse`,
   `npm run quality:ci`) — Performance/Accessibility/Best-Practices, SEO excluded.
 - ✅ Visual harness (`scripts/screenshots.mjs` via Playwright + system Chrome):
   captures Home, Solve, and New Puzzle at desktop + mobile widths to
   `screenshots/`. `npm run screenshots`. (The arm of C8.)
 
 **Certification:** `npm run check` runs 47 tests green; `npm run lighthouse`
-asserts the category gate (recorded: Perf 100 · A11y 94 · Best-Practices 100);
+asserts the category gate (recorded: Perf 99 · A11y 94 · Best-Practices 100);
 `npm run screenshots` renders all screens for C8 review; `npm run verify:judge0`
 → 5/5 Accepted and `npm run walkthrough` solves Echo end-to-end against a live
 Judge0. **Status: ✅ certified** (all arms — test, scan, visual, live — verified).
@@ -522,6 +520,205 @@ production build compiles `judgeBaseUrl` env-var path cleanly).
 
 ---
 
+## Polish Slice 1 — Clash cockpit UI ✅
+
+**Goal:** use the CodinGame Clash references to make the existing single-player
+game read more like a real Clash workspace without claiming unbuilt multiplayer
+or fake modes.
+
+Codable actions:
+
+- ✅ `HomePage`: replace the generic title/button strip with a private solo
+  lobby setup panel, real mode cards for Fastest practice and Beat the Clock,
+  compact puzzle/tier/timer stats, and grouped import/export controls.
+- ✅ `SolvePage`: reshape the solve screen into a Clash-style cockpit —
+  statement/goal left, code right, and a bottom rail for console output, test
+  cases, and actions.
+- ✅ `SolvePage`: add real action-panel telemetry: solo runner status, selected
+  language, code character count, sample-case count, and hidden-case count.
+- ✅ `src/theme/ui.ts`: add named style tokens for the new lobby/workbench/bottom
+  rail layout and move the remaining inline hidden file-input class to
+  `ui.fileInput`.
+- ✅ `src/config/constants.ts` and `scripts/screenshots.mjs`: increase editor
+  height and screenshot settle time so visual certification captures the IDE
+  surface reliably.
+
+**Acceptance:** Home and Solve visually match the intended Clash structure:
+private lobby setup first, dense IDE workbench on solve, bottom rail for player
+status/tests/actions, and no fake multiplayer behavior.
+
+**Certification:**
+
+- ✅ `npm run quality` exit 0: typecheck · lint · format:check · deadcode ·
+  security:audit · 79 tests · build.
+- ✅ Live Judge0 gates after `npm run judge0:up`: `npm run verify:judge0` 5/5
+  Accepted; `npm run test:e2e` solved Echo and Circle Area end to end.
+- ✅ Visual: `VITE_JUDGE0_URL=http://localhost:2358 npm run screenshots` exit
+  0; Home and Solve desktop/mobile reviewed with Monaco visible and no layout
+  overlap.
+
+**Status: ✅ certified.**
+
+---
+
+## Maintenance Slice 1 — zero-audit tooling cleanup ✅
+
+**Goal:** remove the remaining dependency-audit noise instead of carrying
+accepted advisories.
+
+Codable actions:
+
+- ✅ `package.json` / `package-lock.json`: added an npm `overrides` pin for
+  `dompurify@3.4.9`, forcing Monaco's transitive sanitizer dependency to a clean
+  version.
+- ✅ Replaced `@lhci/cli` with direct `lighthouse@13.4.0` +
+  `chrome-launcher@1.2.1`; removed stale `lighthouserc.json`.
+- ✅ `scripts/lighthouse.mjs`: new programmatic Lighthouse gate that serves the
+  production preview, launches headless Chrome, writes `.lighthouseci/lhr.json`,
+  and asserts Performance / Accessibility / Best-Practices thresholds.
+- ✅ `.github/workflows/ci.yml`: kept the same `npm run lighthouse` CI command
+  and updated the comment to match the new runner.
+
+**Acceptance:** `npm audit` reports zero vulnerabilities; `npm run lighthouse`
+still enforces the C7 thresholds; no stale LHCI config or dependency remains.
+
+**Certification:**
+
+- ✅ `npm audit` exit 0: 0 vulnerabilities.
+- ✅ `npm run quality` exit 0: typecheck · lint · format:check · deadcode ·
+  security:audit · 79 tests · build.
+- ✅ `npm run test:coverage` exit 0: 98.17% statements · 90.98% branches · 100%
+  functions · 99.5% lines.
+- ✅ `npm run lighthouse` exit 0: Performance 99 · Accessibility 94 ·
+  Best-Practices 100.
+- ✅ Live Judge0 gates: `npm run verify:judge0` 5/5 Accepted; `npm run test:e2e`
+  solved Echo and Circle Area end to end.
+
+**Status: ✅ certified.**
+
+---
+
+## Puzzle QA Slice 1 — tier-by-tier bank audit ✅
+
+**Goal:** verify every built-in puzzle from Beginner through Expert for clear
+language-agnostic instructions, meaningful visible samples, hidden validators,
+and difficulty fit.
+
+Codable actions:
+
+- ✅ Beginner: clarified `count-chars` (spaces count, non-empty input,
+  visible space sample) and `celsius-to-fahrenheit` (real-number division,
+  numeric tolerance).
+- ✅ Easy: added integer ranges to list tasks, clarified `factorial` numeric
+  size requirements, made case-insensitive vowel behavior visible, clarified
+  palindrome case-sensitivity, and added a negative sort validator.
+- ✅ Medium: clarified numeric-size/tolerance wording for Fibonacci, Average,
+  and Circle Area; corrected Word Count's non-empty constraint; added
+  case-sensitive and no-match coverage to Count Occurrences.
+- ✅ Hard: strengthened weak validators for binary/prime/two-sum, fixed
+  Anagram's case-insensitive constraint conflict, and expanded
+  Number to Words from a trivial 1–19 lookup to a 1–999 conversion.
+- ✅ Expert: strengthened limit/edge validators for Nth Prime, Base Conversion,
+  Prime Factorization, and Rotate Array; corrected Balanced Brackets'
+  non-empty constraint; clarified Matrix Trace accumulator size and RLE Decode
+  non-digit symbol format.
+- ✅ `src/puzzles/generated.test.ts`: added bank-wide quality guards for at
+  least two visible samples, at least one hidden validator, and no duplicate
+  inputs per puzzle.
+
+**Acceptance:** each puzzle has clear instructions, language-agnostic numeric or
+format guidance where needed, visible examples that teach the task, hidden
+validators that cover edge cases, and difficulty-appropriate scope.
+
+**Certification:**
+
+- ✅ `npm run puzzles:generate` regenerated 51 puzzles without generator errors.
+- ✅ Focused tests: `npm run test:run -- src/puzzles/generated.test.ts
+src/judge/grade.test.ts src/pages/SolvePage.test.tsx` exit 0; 27 tests green.
+- ✅ Structural audit: 51 puzzles, 164 test cases, 102 visible samples, 62 hidden
+  validators, all tiers covered, no duplicate inputs, no empty text/input/output
+  fields.
+- ✅ Full gates: `npm run quality`, `npm run test:coverage`, and
+  `npm run quality:ci` green; Lighthouse recorded 99 / 94 / 100.
+- ✅ Live/visual gates: `npm run verify:judge0` 5/5 Accepted,
+  `npm run test:e2e` solved Echo and Circle Area, and `npm run screenshots`
+  captured Home, New Puzzle, and Solve at desktop + mobile widths.
+
+**Status: ✅ certified.**
+
+---
+
+## Optional AI Slice 1 — start screen and AI puzzle generation ✅
+
+**Goal:** add a proper start screen, friendly difficulty/game selection, and
+optional OpenAI-backed puzzle generation that satisfies the same puzzle-quality
+standards as the built-in bank.
+
+Codable actions:
+
+- ✅ `HomePage`: first screen now has a difficulty selector, game-mode chooser,
+  Quick play, Quick play AI puzzle, and filtered puzzle list.
+- ✅ Generated AI puzzles open as session-only puzzles first, so quick-play
+  experiments do not pollute the saved puzzle list.
+- ✅ `SolvePage`: session AI puzzles can be favorited from inside the game,
+  named by the user, and promoted to permanent browser puzzle storage.
+- ✅ `AccountPage`: users can enter an OpenAI API key, test it, save it locally,
+  test the saved key, and clear it.
+- ✅ `src/openai/keyStorage.ts`: API key is masked in UI and encrypted at rest
+  with Web Crypto AES-GCM using a non-extractable IndexedDB key; ciphertext is
+  kept in `localStorage`; clear removes both storage records when available.
+- ✅ `src/openai/puzzleGenerator.ts`: uses Responses API with default model
+  `gpt-5.5`, low reasoning effort / low verbosity, strict JSON-schema
+  structured outputs, no fallback model, and local validation for selected
+  difficulty, visible samples, hidden validators, duplicate inputs, non-empty
+  fields, and match mode. Generated instructions are also gated for ASCII-only
+  wording, no ambiguity, concrete `Line 1` I/O specs, concrete numeric bounds,
+  cross-language integer safety, no language-specific requirements, difficulty
+  fit, and explicit float tolerance wording.
+  Reference solutions are executed in Judge0 Python 3, expected outputs are
+  canonicalized from verified stdout, compile/runtime/timeout/empty/oversized
+  outputs are rejected, failed candidates retry with QA feedback, and stalled
+  OpenAI requests time out explicitly.
+- ✅ `vite.config.ts`: dev proxy `/openai` → `https://api.openai.com` for local
+  Account Setup testing.
+- ✅ `public/favicon.svg`: replaced with the provided jester SVG asset from
+  ignored `temp/`.
+- ✅ `scripts/screenshots.mjs`: visual harness now captures Account Setup at
+  desktop and mobile widths.
+- ✅ Tests added for Home start-screen filtering/quick play, Account key actions,
+  AI generator request/validation behavior, temporary generated-puzzle storage,
+  and generated-puzzle favorite/save behavior.
+
+**Acceptance:** quick play opens a matching built-in puzzle; AI quick play
+requires a saved key, shows a building overlay, generates an original puzzle for
+the selected difficulty, validates it before opening, and opens the solve
+screen as a session puzzle; if the player favorites it, they must name it before
+it is saved permanently. The key can be tested, saved, re-tested, and cleared
+without appearing in app text or exported puzzle JSON. AI-generated puzzle
+instructions must satisfy the same clarity, language-agnostic, difficulty-fit,
+and test-case standards as the built-in bank before open/favorite.
+
+**Certification:** ✅ complete. Evidence from the final gate run:
+
+- `npm run quality` green: typecheck, strict lint, format check, deadcode,
+  high-severity security audit, 96 tests, and production build.
+- `npm run test:coverage` green: 97.08% statements / 91.26% branches / 98.66%
+  functions / 98.2% lines.
+- `npm run quality:ci` green: Lighthouse Performance 90, Accessibility 100,
+  Best-Practices 100.
+- `npm run verify:judge0` green: Python 3, JavaScript, Ruby, C++, and Go all
+  Accepted.
+- `npm run test:e2e` green: Echo and Circle Area solved through live Judge0.
+- `npm run test:e2e:full` green: 10 built-in puzzles solved (2 per difficulty)
+  and 10 AI-generated puzzles solved/favorited (2 per difficulty).
+- `npm run screenshots` green; visual review covered Home, Account, Solve, and
+  Favorite modal desktop/mobile screenshots. Chrome DevTools MCP snapshot loaded
+  Home with no console errors and normal local dev network requests.
+
+**Status: ✅ certified.**
+
+---
+
 ## Current certification ledger
 
 | Milestone             | Built | Auto-tested | Certified | Notes                        |
@@ -538,15 +735,31 @@ production build compiles `judgeBaseUrl` env-var path cleanly).
 | M8 Content & sharing  | ✅    | ✅          | ✅        | 51 puzzles, io.ts, share URL |
 | M9 CI                 | ✅    | ✅          | ✅        | coverage gate; CI workflow   |
 | M10 Deployment        | ✅    | ✅          | ✅        | env-var Judge0 URL, README   |
+| Polish 1 Cockpit UI   | ✅    | ✅          | ✅        | quality + live + visual      |
+| Maintenance 1 Audit   | ✅    | ✅          | ✅        | full npm audit = 0 vulns     |
+| Puzzle QA 1 Bank      | ✅    | ✅          | ✅        | 164 cases, tier audit        |
+| Optional AI 1         | ✅    | ✅          | ✅        | full standard + AI e2e       |
 
-**All milestones to date are certified.** `npm run quality` green
-(typecheck + strict lint + format + deadcode + security:audit + **79 tests** +
-build). Coverage gate (`npm run test:coverage`) green: 98%/91%/100%/99.5%.
-Lighthouse: Perf 100 · A11y 94 · Best-Practices 100 (SEO excluded). Live
+**All milestones and completed slices are certified.** Latest full gate:
+`npm run quality` green (typecheck + strict lint + format + deadcode +
+security:audit + **96 tests** + build). `npm audit` green with **0
+vulnerabilities**. Coverage gate green: 97.08% / 91.26% / 98.66% / 98.2%.
+Lighthouse: Perf 90 · A11y 100 · Best-Practices 100 (SEO excluded). Live
 execution verified: `npm run verify:judge0` 5/5 Accepted; `npm run test:e2e`
-solved Echo (trimmed) and Circle Area (float) end-to-end against Judge0.
+solved Echo (trimmed) and Circle Area (float) end-to-end against Judge0;
+`npm run test:e2e:full` solved 20 total puzzles, including 10 AI-generated
+puzzles that were favorited with saved names.
 
-**Immediate next step:** All planned milestones complete. Next work is open-ended: additional puzzle content, hosted deployment, or feature extensions (leaderboard, multiplayer, etc.).
+**Next slice:** optional AI Slice 2 should be all-language generated-puzzle
+certification as a separate nightly/manual gate: sample saved AI puzzles, run
+language-specific reference solutions or generated/verifier-backed solutions
+across every supported Judge0 language, and record failures without slowing
+normal quick play.
+
+**Deferred gameplay slice:** true Clash format depth remains after AI
+certification: Reverse mode should hide the statement and expose sample
+input/output for deduction; Shortest mode should score successful submissions
+by character count and keep local best code size.
 
 ---
 

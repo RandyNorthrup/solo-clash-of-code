@@ -7,27 +7,29 @@ import type { Difficulty } from '../puzzles/types'
 
 export const ui = {
   // App shell & layout
-  appShell: 'flex min-h-screen flex-col bg-[#0d1117] text-[#e6edf3]',
+  appShell: 'flex min-h-screen flex-col bg-[#090d12] text-[#e6edf3]',
   header:
-    'flex items-center justify-between border-b border-[#30363d] bg-[#161b22] px-6 py-3',
-  brand: 'flex items-center gap-2 text-lg font-semibold tracking-tight',
-  brandMark: 'text-xl',
-  nav: 'flex items-center gap-1',
+    'flex items-center justify-between border-b border-[#30363d] bg-[#11161d] px-4 py-3 sm:px-6',
+  brand:
+    'flex shrink-0 items-center gap-2 whitespace-nowrap text-lg font-semibold tracking-tight',
+  brandMark: 'text-xl text-[#f2cc60]',
+  nav: 'flex items-center gap-1 overflow-x-auto',
   navLink:
-    'rounded-md px-3 py-1.5 text-sm font-medium text-[#9da7b3] transition-colors hover:bg-[#21262d] hover:text-[#e6edf3]',
+    'whitespace-nowrap rounded-md px-3 py-1.5 text-sm font-medium text-[#9da7b3] transition-colors hover:bg-[#21262d] hover:text-[#e6edf3]',
   navLinkActive:
-    'rounded-md px-3 py-1.5 text-sm font-medium bg-[#21262d] text-[#e6edf3]',
-  main: 'mx-auto w-full max-w-6xl flex-1 px-6 py-6',
+    'whitespace-nowrap rounded-md bg-[#21262d] px-3 py-1.5 text-sm font-medium text-[#e6edf3]',
+  main: 'mx-auto w-full max-w-7xl flex-1 px-4 py-5 sm:px-6 sm:py-6',
   page: 'flex flex-col gap-6',
   pageTitle: 'text-2xl font-semibold tracking-tight',
   pageSubtitle: 'text-sm text-[#9da7b3]',
   sectionTitle: 'text-sm font-semibold uppercase tracking-wide text-[#9da7b3]',
+  subtleText: 'text-sm text-[#9da7b3]',
 
   // Panels & cards
-  panel: 'rounded-lg border border-[#30363d] bg-[#161b22]',
-  panelPadded: 'rounded-lg border border-[#30363d] bg-[#161b22] p-4',
+  panel: 'rounded-lg border border-[#30363d] bg-[#151a21]',
+  panelPadded: 'rounded-lg border border-[#30363d] bg-[#151a21] p-4',
   panelHeader:
-    'flex items-center justify-between border-b border-[#30363d] px-4 py-2.5 text-sm font-semibold',
+    'flex items-center justify-between gap-3 border-b border-[#30363d] px-4 py-2.5 text-sm font-semibold',
   panelBody: 'p-4',
 
   // Buttons
@@ -39,6 +41,8 @@ export const ui = {
     'inline-flex items-center justify-center gap-2 rounded-md px-3 py-1.5 text-sm font-medium text-[#9da7b3] transition-colors hover:bg-[#21262d] hover:text-[#e6edf3]',
   btnDanger:
     'inline-flex items-center justify-center gap-2 rounded-md border border-[#f8514933] bg-[#21262d] px-3 py-1.5 text-sm font-medium text-[#f85149] transition-colors hover:bg-[#f8514922]',
+  btnHero:
+    'inline-flex items-center justify-center gap-2 rounded-md bg-[#238636] px-5 py-3 text-base font-semibold text-white transition-colors hover:bg-[#2ea043] disabled:cursor-not-allowed disabled:opacity-50',
 
   // Forms
   field: 'flex flex-col gap-1.5',
@@ -50,11 +54,44 @@ export const ui = {
     'min-h-24 rounded-md border border-[#30363d] bg-[#0d1117] px-3 py-2 font-mono text-sm text-[#e6edf3] outline-none focus:border-[#58a6ff]',
   select:
     'rounded-md border border-[#30363d] bg-[#0d1117] px-3 py-2 text-sm text-[#e6edf3] outline-none focus:border-[#58a6ff]',
+  fileInput: 'hidden',
+
+  // Home / lobby setup
+  startGrid:
+    'grid grid-cols-1 gap-4 border-b border-[#30363d] pb-4 lg:grid-cols-[minmax(18rem,0.8fr)_minmax(22rem,1.2fr)]',
+  startPanel: 'flex flex-col gap-4',
+  segmented: 'grid grid-cols-2 gap-2 sm:grid-cols-5',
+  segment:
+    'rounded-md border border-[#30363d] bg-[#0d1117] px-3 py-2 text-sm font-medium text-[#9da7b3] transition-colors hover:border-[#58a6ff] hover:text-[#e6edf3]',
+  segmentActive:
+    'rounded-md border border-[#58a6ff] bg-[#1f6feb22] px-3 py-2 text-sm font-semibold text-[#58a6ff]',
+  quickActions: 'grid grid-cols-1 gap-2 sm:grid-cols-2',
+  lobbyPanel:
+    'rounded-lg border border-[#30363d] bg-[#151a21] p-4 shadow-[0_18px_60px_rgba(0,0,0,0.18)]',
+  lobbyHeader:
+    'flex flex-col gap-4 border-b border-[#30363d] pb-4 lg:flex-row lg:items-center lg:justify-between',
+  lobbyTitleBlock: 'flex flex-col gap-1',
+  lobbyEyebrow: 'text-xs font-semibold uppercase tracking-wide text-[#f2cc60]',
+  lobbyStats: 'grid grid-cols-3 gap-2 sm:min-w-96',
+  lobbyStat:
+    'rounded-md border border-[#30363d] bg-[#0d1117] px-3 py-2 text-center',
+  lobbyStatValue: 'font-mono text-lg font-semibold tabular-nums text-[#e6edf3]',
+  lobbyStatLabel: 'text-xs uppercase tracking-wide text-[#9da7b3]',
+  modeGrid: 'grid grid-cols-1 gap-3 pt-4 md:grid-cols-2',
+  modeCard:
+    'flex min-h-28 flex-col items-start gap-2 rounded-md border border-[#30363d] bg-[#0d1117] p-4 text-left transition-colors hover:border-[#58a6ff]',
+  modeCardActive:
+    'flex min-h-28 flex-col items-start gap-2 rounded-md border border-[#2ea043] bg-[#16351f] p-4 text-left transition-colors hover:border-[#3fb950]',
+  modeTitle: 'text-base font-semibold text-[#e6edf3]',
+  modeMeta: 'text-sm leading-relaxed text-[#9da7b3]',
+  minuteRail: 'flex flex-wrap gap-2 pt-3',
+  accountSummary:
+    'rounded-md border border-[#30363d] bg-[#0d1117] px-3 py-2 text-sm text-[#9da7b3]',
 
   // Puzzle list
   puzzleGrid: 'grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3',
   puzzleCard:
-    'flex flex-col gap-3 rounded-lg border border-[#30363d] bg-[#161b22] p-4 text-left transition-colors hover:border-[#58a6ff]',
+    'flex min-h-32 flex-col gap-3 rounded-lg border border-[#30363d] bg-[#151a21] p-4 text-left transition-colors hover:border-[#58a6ff]',
   puzzleCardTitle:
     'self-start text-left text-base font-semibold transition-colors hover:text-[#58a6ff]',
   puzzleCardMeta: 'flex items-center justify-between',
@@ -67,7 +104,16 @@ export const ui = {
   tag: 'inline-flex items-center rounded-md bg-[#21262d] px-2 py-0.5 text-xs font-medium text-[#9da7b3]',
 
   // Solve view
-  solveGrid: 'grid grid-cols-1 gap-4 lg:grid-cols-2',
+  solveHeader:
+    'flex flex-col gap-3 border-b border-[#30363d] pb-4 lg:flex-row lg:items-center lg:justify-between',
+  solveTitleCluster: 'flex flex-wrap items-center gap-3',
+  solveMetaRail: 'flex flex-wrap items-center gap-2',
+  solveWorkbench:
+    'grid grid-cols-1 gap-3 xl:grid-cols-[minmax(22rem,0.9fr)_minmax(36rem,1.1fr)]',
+  solveGrid:
+    'grid grid-cols-1 gap-3 xl:grid-cols-[minmax(22rem,0.9fr)_minmax(36rem,1.1fr)]',
+  editorStack: 'flex flex-col gap-3',
+  solveBottomRail: 'grid grid-cols-1 gap-3 lg:grid-cols-[1fr_1.15fr_18rem]',
   statement: 'flex flex-col gap-4 text-sm leading-relaxed text-[#c9d1d9]',
   statementText: 'whitespace-pre-line text-sm leading-relaxed text-[#c9d1d9]',
   statementHeading:
@@ -78,6 +124,20 @@ export const ui = {
   editorWrap: 'overflow-hidden rounded-lg border border-[#30363d]',
   toolbar: 'flex flex-wrap items-center gap-2',
   spacer: 'flex-1',
+  actionStack: 'flex flex-col gap-3',
+  actionButtons: 'grid grid-cols-1 gap-2 sm:grid-cols-3 lg:grid-cols-1',
+  metricGrid: 'grid grid-cols-3 gap-2',
+  metricBox: 'rounded-md border border-[#30363d] bg-[#0d1117] px-3 py-2',
+  metricValue: 'font-mono text-base font-semibold tabular-nums text-[#e6edf3]',
+  metricLabel: 'text-xs uppercase tracking-wide text-[#9da7b3]',
+  playerRow:
+    'flex items-center justify-between gap-3 rounded-md border border-[#30363d] bg-[#0d1117] px-3 py-2',
+  playerIdentity: 'flex min-w-0 items-center gap-2',
+  playerAvatar:
+    'flex size-8 shrink-0 items-center justify-center rounded-md bg-[#1f6feb22] font-mono text-xs font-semibold text-[#58a6ff]',
+  playerName: 'truncate text-sm font-semibold text-[#e6edf3]',
+  playerStatus: 'text-right text-xs uppercase tracking-wide text-[#9da7b3]',
+  testListCompact: 'flex flex-col gap-2',
 
   // Console / output
   consoleBox:
@@ -110,6 +170,16 @@ export const ui = {
     'rounded-md border border-[#f85149] bg-[#f8514922] px-4 py-3 text-sm text-[#f85149]',
   bannerInfo:
     'rounded-md border border-[#30363d] bg-[#0d1117] px-4 py-3 text-sm text-[#9da7b3]',
+
+  // Modal / overlays
+  modalBackdrop:
+    'fixed inset-0 z-50 flex items-center justify-center bg-[#090d12cc] p-4 backdrop-blur-sm',
+  modalPanel:
+    'w-full max-w-md rounded-lg border border-[#30363d] bg-[#151a21] p-5 shadow-[0_24px_90px_rgba(0,0,0,0.45)]',
+  buildGraphic: 'flex items-end justify-center gap-2 py-5',
+  buildBar: 'h-12 w-5 animate-pulse rounded-t-md bg-[#58a6ff] opacity-80',
+  buildBarAlt: 'h-16 w-5 animate-pulse rounded-t-md bg-[#3fb950] opacity-80',
+  buildBarTall: 'h-20 w-5 animate-pulse rounded-t-md bg-[#f2cc60] opacity-80',
 
   // Stats page
   statsSection: 'flex flex-col gap-3',

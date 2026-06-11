@@ -11,6 +11,7 @@ import { TestCaseList } from '../components/TestCaseList'
 import {
   DEFAULT_TIMED_MODE_MINUTES,
   MILLISECONDS_PER_SECOND,
+  MIN_TITLE_LENGTH,
   TIMED_DANGER_THRESHOLD_SEC,
   TIMED_WARNING_THRESHOLD_SEC,
 } from '../config/constants'
@@ -20,7 +21,12 @@ import type { AvailableLanguage } from '../judge/availability'
 import { allPassed, gradeAll, type CaseResult } from '../judge/grade'
 import { findLanguageByKey } from '../judge/languages'
 import { useLanguages } from '../judge/useLanguages'
-import { getPuzzleById } from '../puzzles/store'
+import {
+  deleteTempPuzzle,
+  getPuzzleById,
+  isTempPuzzle,
+  saveUserPuzzle,
+} from '../puzzles/store'
 import type { Puzzle } from '../puzzles/types'
 import { appendSolve, getRecentTimesForPuzzle } from '../scores/history'
 import { recordTimeMs } from '../scores/store'
@@ -107,9 +113,21 @@ function SolveWorkspace({
   const [pending, setPending] = useState<ReadonlySet<string>>(new Set())
   const [busy, setBusy] = useState(false)
   const [banner, setBanner] = useState<Banner | null>(null)
+  const [isFavoriteDialogOpen, setIsFavoriteDialogOpen] = useState(false)
+  const [favoriteName, setFavoriteName] = useState(puzzle.title)
+  const [favoriteSaved, setFavoriteSaved] = useState(
+    () => !isTempPuzzle(puzzle.id),
+  )
   const [recentTimes, setRecentTimes] = useState<readonly number[]>(() =>
     getRecentTimesForPuzzle(puzzle.id),
   )
+  const visibleCaseCount = puzzle.testcases.filter(
+    (testCase) => !testCase.hidden,
+  ).length
+  const hiddenCaseCount = puzzle.testcases.length - visibleCaseCount
+  const selectedLanguageLabel =
+    languages.find((lang) => lang.def.key === languageKey)?.def.label ??
+    languageKey
 
   // Abort any in-flight batch when the workspace unmounts (e.g. user navigates away).
   const runControllerRef = useRef<AbortController | null>(null)
@@ -253,17 +271,131 @@ function SolveWorkspace({
     (timeUp
       ? { kind: 'info', text: "Time's up! You can keep practising." }
       : null)
+  const playerStatus = busy
+    ? 'Running'
+    : banner?.kind === 'success'
+      ? 'Solved'
+      : timeUp
+        ? 'Time up'
+        : 'Solving'
+  const canFavoritePuzzle = isTempPuzzle(puzzle.id) && !favoriteSaved
+  const favoriteNameTrimmed = favoriteName.trim()
+  const favoriteNameTooShort = favoriteNameTrimmed.length < MIN_TITLE_LENGTH
+
+  const openFavoriteDialog = useCallback(() => {
+    setFavoriteName(puzzle.title)
+    setIsFavoriteDialogOpen(true)
+  }, [puzzle.title])
+
+  const closeFavoriteDialog = useCallback(() => {
+    setIsFavoriteDialogOpen(false)
+  }, [])
+
+  const saveFavoritePuzzle = useCallback(() => {
+    if (favoriteNameTooShort) {
+      setBanner({
+        kind: 'error',
+        text: `Use at least ${String(MIN_TITLE_LENGTH)} characters for the saved name.`,
+      })
+      return
+    }
+    try {
+      saveUserPuzzle({
+        ...puzzle,
+        title: favoriteNameTrimmed,
+        source: 'user',
+      })
+      deleteTempPuzzle(puzzle.id)
+      setFavoriteSaved(true)
+      setIsFavoriteDialogOpen(false)
+      setBanner({
+        kind: 'success',
+        text: `Saved puzzle "${favoriteNameTrimmed}".`,
+      })
+    } catch (err) {
+      setBanner({
+        kind: 'error',
+        text: err instanceof Error ? err.message : 'Puzzle save failed.',
+      })
+    }
+  }, [favoriteNameTooShort, favoriteNameTrimmed, puzzle])
 
   return (
     <>
+      {isFavoriteDialogOpen && (
+        <div className={ui.modalBackdrop}>
+          <div
+            className={ui.modalPanel}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="favorite-puzzle-title"
+          >
+            <div className={ui.page}>
+              <div>
+                <h2 id="favorite-puzzle-title" className={ui.pageTitle}>
+                  Save generated puzzle
+                </h2>
+                <p className={ui.pageSubtitle}>
+                  Name it before adding it to your puzzle list.
+                </p>
+              </div>
+              <div className={ui.field}>
+                <label className={ui.label} htmlFor="saved-puzzle-name">
+                  Saved puzzle name
+                </label>
+                <input
+                  id="saved-puzzle-name"
+                  className={ui.input}
+                  value={favoriteName}
+                  autoFocus
+                  onChange={(event) => {
+                    setFavoriteName(event.target.value)
+                  }}
+                />
+                {favoriteNameTooShort && (
+                  <p className={ui.hint}>
+                    Use at least {String(MIN_TITLE_LENGTH)} characters.
+                  </p>
+                )}
+              </div>
+              <div className={ui.toolbar}>
+                <button
+                  type="button"
+                  className={ui.btnGhost}
+                  onClick={closeFavoriteDialog}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  className={ui.btnPrimary}
+                  disabled={favoriteNameTooShort}
+                  onClick={saveFavoritePuzzle}
+                >
+                  Save favorite
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {activeBanner !== null && (
         <div className={BANNER_CLASS[activeBanner.kind]}>
           {activeBanner.text}
         </div>
       )}
 
-      <div className={ui.solveGrid}>
-        <Panel title="Statement">
+      {!loading && languages.length === 0 && (
+        <div className={ui.bannerError}>
+          No languages available — start the execution sandbox with `npm run
+          judge0:up`.
+          {langError !== null && ` (${langError})`}
+        </div>
+      )}
+
+      <div className={ui.solveWorkbench}>
+        <Panel title="Goal">
           <div className={ui.statement}>
             <p className={ui.statementText}>{puzzle.statement}</p>
             <div className={ui.statementBlock}>
@@ -282,84 +414,123 @@ function SolveWorkspace({
           </div>
         </Panel>
 
-        <div className={ui.page}>
-          <div className={ui.toolbar}>
-            <select
-              className={ui.select}
-              value={languageKey}
-              disabled={loading || languages.length === 0}
-              onChange={(event) => {
-                onSelectLanguage(event.target.value)
-              }}
-            >
-              {languages.map((lang) => (
-                <option key={lang.def.key} value={lang.def.key}>
-                  {lang.def.label}
-                </option>
-              ))}
-            </select>
-            <div className={ui.spacer} />
-            <button
-              type="button"
-              className={ui.btnGhost}
-              disabled={busy}
-              onClick={resetCode}
-            >
-              Reset
-            </button>
-            <button
-              type="button"
-              className={ui.btnSecondary}
-              disabled={busy || judge0Id === undefined}
-              onClick={() => {
-                void run('visible')
-              }}
-              title="Run sample cases (Ctrl/Cmd+Enter)"
-            >
-              Run
-            </button>
-            <button
-              type="button"
-              className={ui.btnPrimary}
-              disabled={busy || judge0Id === undefined}
-              onClick={() => {
-                void run('all')
-              }}
-            >
-              Submit
-            </button>
-          </div>
-
-          {!loading && languages.length === 0 && (
-            <div className={ui.bannerError}>
-              No languages available — start the execution sandbox with `npm run
-              judge0:up`.
-              {langError !== null && ` (${langError})`}
-            </div>
-          )}
-
-          <CodeEditor
-            monacoId={monacoId}
-            value={code}
-            onChange={onChangeCode}
-          />
-
-          <Panel title="Console">
-            <Console
-              result={failure?.result ?? null}
-              caseTitle={failure?.title ?? null}
+        <div className={ui.editorStack}>
+          <Panel
+            title="Code"
+            actions={
+              <select
+                className={ui.select}
+                value={languageKey}
+                disabled={loading || languages.length === 0}
+                onChange={(event) => {
+                  onSelectLanguage(event.target.value)
+                }}
+              >
+                {languages.map((lang) => (
+                  <option key={lang.def.key} value={lang.def.key}>
+                    {lang.def.label}
+                  </option>
+                ))}
+              </select>
+            }
+          >
+            <CodeEditor
+              monacoId={monacoId}
+              value={code}
+              onChange={onChangeCode}
             />
           </Panel>
         </div>
       </div>
 
-      <Panel title="Test cases">
-        <TestCaseList
-          testcases={puzzle.testcases}
-          results={results}
-          pending={pending}
-        />
-      </Panel>
+      <div className={ui.solveBottomRail}>
+        <Panel title="Console output">
+          <Console
+            result={failure?.result ?? null}
+            caseTitle={failure?.title ?? null}
+          />
+        </Panel>
+
+        <Panel title="Test cases">
+          <TestCaseList
+            testcases={puzzle.testcases}
+            results={results}
+            pending={pending}
+          />
+        </Panel>
+
+        <Panel title="Actions">
+          <div className={ui.actionStack}>
+            <div className={ui.playerRow}>
+              <div className={ui.playerIdentity}>
+                <span className={ui.playerAvatar}>YOU</span>
+                <div>
+                  <div className={ui.playerName}>Solo runner</div>
+                  <div className={ui.subtleText}>{selectedLanguageLabel}</div>
+                </div>
+              </div>
+              <div className={ui.playerStatus}>{playerStatus}</div>
+            </div>
+
+            <div className={ui.metricGrid}>
+              <div className={ui.metricBox}>
+                <div className={ui.metricValue}>{code.length}</div>
+                <div className={ui.metricLabel}>chars</div>
+              </div>
+              <div className={ui.metricBox}>
+                <div className={ui.metricValue}>{visibleCaseCount}</div>
+                <div className={ui.metricLabel}>sample</div>
+              </div>
+              <div className={ui.metricBox}>
+                <div className={ui.metricValue}>{hiddenCaseCount}</div>
+                <div className={ui.metricLabel}>hidden</div>
+              </div>
+            </div>
+
+            {canFavoritePuzzle && (
+              <button
+                type="button"
+                className={ui.btnSecondary}
+                onClick={openFavoriteDialog}
+              >
+                Favorite puzzle
+              </button>
+            )}
+
+            <div className={ui.actionButtons}>
+              <button
+                type="button"
+                className={ui.btnGhost}
+                disabled={busy}
+                onClick={resetCode}
+              >
+                Reset
+              </button>
+              <button
+                type="button"
+                className={ui.btnSecondary}
+                disabled={busy || judge0Id === undefined}
+                onClick={() => {
+                  void run('visible')
+                }}
+                title="Run sample cases (Ctrl/Cmd+Enter)"
+              >
+                Run
+              </button>
+              <button
+                type="button"
+                className={ui.btnPrimary}
+                disabled={busy || judge0Id === undefined}
+                onClick={() => {
+                  void run('all')
+                }}
+              >
+                Submit
+              </button>
+            </div>
+          </div>
+        </Panel>
+      </div>
     </>
   )
 }
@@ -406,26 +577,32 @@ export function SolvePage(): React.JSX.Element {
 
   return (
     <div className={ui.page}>
-      <div className={ui.toolbar}>
-        <Link to={ROUTES.home} className={ui.btnGhost}>
-          ← Puzzles
-        </Link>
-        <DifficultyBadge difficulty={puzzle.difficulty} />
-        <h1 className={ui.pageTitle}>{puzzle.title}</h1>
-        <div className={ui.spacer} />
-        {isTimed ? (
-          <Clock
-            label="Time left"
-            display={formatCountdown(remainingMs)}
-            tone={countdownTone(remainingMs)}
-          />
-        ) : (
-          <Clock
-            label="Elapsed"
-            display={formatStopwatch(elapsedMs)}
-            tone="normal"
-          />
-        )}
+      <div className={ui.solveHeader}>
+        <div className={ui.solveTitleCluster}>
+          <Link to={ROUTES.home} className={ui.btnGhost}>
+            ← Puzzles
+          </Link>
+          <DifficultyBadge difficulty={puzzle.difficulty} />
+          <h1 className={ui.pageTitle}>{puzzle.title}</h1>
+        </div>
+        <div className={ui.solveMetaRail}>
+          <span className={ui.tag}>
+            {isTimed ? 'Beat the Clock' : 'Fastest practice'}
+          </span>
+          {isTimed ? (
+            <Clock
+              label="Time left"
+              display={formatCountdown(remainingMs)}
+              tone={countdownTone(remainingMs)}
+            />
+          ) : (
+            <Clock
+              label="Elapsed"
+              display={formatStopwatch(elapsedMs)}
+              tone="normal"
+            />
+          )}
+        </div>
       </div>
 
       <SolveWorkspace

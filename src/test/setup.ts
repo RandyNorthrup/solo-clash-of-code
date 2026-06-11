@@ -37,8 +37,14 @@ Object.defineProperty(globalThis, 'localStorage', {
   configurable: true,
 })
 
+Object.defineProperty(globalThis, 'sessionStorage', {
+  value: new MemoryStorage(),
+  configurable: true,
+})
+
 // Unmount React trees and clear storage between tests for isolation.
 afterEach(() => {
   cleanup()
   localStorage.clear()
+  sessionStorage.clear()
 })

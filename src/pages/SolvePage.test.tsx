@@ -30,12 +30,34 @@ vi.mock('../judge/grade', async (importOriginal) => {
 
 import { SolvePage } from './SolvePage'
 import { gradeAll } from '../judge/grade'
+import { getPuzzleById, getUserPuzzles, saveTempPuzzle } from '../puzzles/store'
+import type { Puzzle } from '../puzzles/types'
 import { getBestTimeMs } from '../scores/store'
 import { ROUTES } from '../routes'
 
-function renderSolve() {
+const TEMP_PUZZLE: Puzzle = {
+  id: 'generated-save-test',
+  title: 'Generated Save Test',
+  difficulty: 'beginner',
+  statement: 'Print the input.',
+  constraints: '1 <= length <= 10',
+  inputSpec: 'Line 1: One string.',
+  outputSpec: 'Line 1: The same string.',
+  source: 'user',
+  testcases: [
+    {
+      id: 'generated-save-test-0',
+      title: 'sample',
+      input: 'hi',
+      expectedOutput: 'hi',
+      hidden: false,
+    },
+  ],
+}
+
+function renderSolve(initialEntry = '/solve/echo') {
   return render(
-    <MemoryRouter initialEntries={['/solve/echo']}>
+    <MemoryRouter initialEntries={[initialEntry]}>
       <Routes>
         <Route path={ROUTES.solve} element={<SolvePage />} />
       </Routes>
@@ -105,5 +127,24 @@ describe('SolvePage', () => {
       screen.queryByText(/did not pass|Run failed/i),
     ).not.toBeInTheDocument()
     expect(screen.queryByText(/new best time/i)).not.toBeInTheDocument()
+  })
+
+  it('saves a temporary generated puzzle as a named favorite', async () => {
+    saveTempPuzzle(TEMP_PUZZLE)
+    const user = userEvent.setup()
+    renderSolve(`/solve/${TEMP_PUZZLE.id}`)
+
+    await user.click(screen.getByRole('button', { name: 'Favorite puzzle' }))
+    await user.clear(screen.getByLabelText('Saved puzzle name'))
+    await user.type(screen.getByLabelText('Saved puzzle name'), 'Saved AI Run')
+    await user.click(screen.getByRole('button', { name: 'Save favorite' }))
+
+    expect(screen.getByText('Saved puzzle "Saved AI Run".')).toBeInTheDocument()
+    expect(getUserPuzzles()).toHaveLength(1)
+    expect(getUserPuzzles()[0]?.title).toBe('Saved AI Run')
+    expect(getPuzzleById(TEMP_PUZZLE.id)?.title).toBe('Saved AI Run')
+    expect(
+      screen.queryByRole('button', { name: 'Favorite puzzle' }),
+    ).not.toBeInTheDocument()
   })
 })

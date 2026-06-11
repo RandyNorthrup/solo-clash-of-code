@@ -72,7 +72,7 @@ export function TestCaseList({
   pending,
 }: TestCaseListProps): React.JSX.Element {
   return (
-    <div className={ui.page}>
+    <div className={ui.testListCompact}>
       {testcases.map((testCase) => {
         const style = rowStyle(results[testCase.id], pending.has(testCase.id))
         return (

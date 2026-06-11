@@ -6,6 +6,7 @@ import tailwindcss from '@tailwindcss/vite'
 // separate backend during local development. Override the target with
 // VITE_JUDGE0_URL if your Judge0 instance runs elsewhere.
 const DEFAULT_JUDGE0_URL = 'http://localhost:2358'
+const DEFAULT_OPENAI_URL = 'https://api.openai.com'
 
 function resolveJudge0Url(): string {
   const raw = process.env.VITE_JUDGE0_URL
@@ -22,6 +23,7 @@ function resolveJudge0Url(): string {
 }
 
 const JUDGE0 = resolveJudge0Url()
+const OPENAI = DEFAULT_OPENAI_URL
 
 export default defineConfig({
   plugins: [react(), tailwindcss()],
@@ -31,6 +33,11 @@ export default defineConfig({
         target: JUDGE0,
         changeOrigin: true,
         rewrite: (path) => path.replace(/^\/judge0/, ''),
+      },
+      '/openai': {
+        target: OPENAI,
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/openai/, ''),
       },
     },
   },

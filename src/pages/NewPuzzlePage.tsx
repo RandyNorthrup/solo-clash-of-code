@@ -3,6 +3,7 @@ import { useCallback, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Panel } from '../components/Panel'
 import { MIN_TESTCASES_PER_PUZZLE, MIN_TITLE_LENGTH } from '../config/constants'
+import { createUserPuzzleId } from '../puzzles/ids'
 import { saveUserPuzzle } from '../puzzles/store'
 import {
   DIFFICULTIES,
@@ -26,13 +27,6 @@ const EMPTY_CASE: DraftCase = {
   input: '',
   expectedOutput: '',
   hidden: false,
-}
-
-function slugify(value: string): string {
-  return value
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/gu, '-')
-    .replace(/^-+|-+$/gu, '')
 }
 
 function validate(title: string, cases: readonly DraftCase[]): string[] {
@@ -84,7 +78,7 @@ export function NewPuzzlePage(): React.JSX.Element {
       setErrors(found)
       return
     }
-    const id = `${slugify(title)}-${crypto.randomUUID()}`
+    const id = createUserPuzzleId(title)
     const testcases: readonly TestCase[] = cases
       .filter((testCase) => testCase.input.trim().length > 0)
       .map((testCase, index) => ({

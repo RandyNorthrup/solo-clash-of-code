@@ -147,6 +147,35 @@ const numWords = [
   'nineteen',
 ]
 
+const tensWords = [
+  '',
+  '',
+  'twenty',
+  'thirty',
+  'forty',
+  'fifty',
+  'sixty',
+  'seventy',
+  'eighty',
+  'ninety',
+]
+
+const numberToWords = (n) => {
+  if (n < 20) return numWords[n] ?? ''
+  if (n < 100) {
+    const tens = Math.floor(n / 10)
+    const ones = n % 10
+    return ones === 0
+      ? (tensWords[tens] ?? '')
+      : `${tensWords[tens] ?? ''} ${numWords[ones] ?? ''}`
+  }
+  const hundreds = Math.floor(n / 100)
+  const rem = n % 100
+  return rem === 0
+    ? `${numWords[hundreds] ?? ''} hundred`
+    : `${numWords[hundreds] ?? ''} hundred ${numberToWords(rem)}`
+}
+
 const primeFactors = (n) => {
   const factors = []
   let d = 2
@@ -318,14 +347,14 @@ const specs = [
     title: 'Character Count',
     difficulty: 'beginner',
     statement:
-      'Read a line of text and print the number of characters it contains.',
-    constraints: 'The line has 0 to 200 printable ASCII characters.',
+      'Read a line of text and print the number of characters it contains. Spaces count as characters.',
+    constraints: 'The line has 1 to 200 printable ASCII characters.',
     inputSpec: 'Line 1: A string s.',
     outputSpec: 'Line 1: The number of characters in s.',
     solve: (input) => String(firstLine(input).length),
     cases: [
       { title: 'word', input: 'hello', hidden: false },
-      { title: 'short', input: 'hi', hidden: false },
+      { title: 'with space', input: 'hi there', hidden: false },
       { title: 'phrase', input: 'clash of code', hidden: true },
     ],
   },
@@ -335,11 +364,11 @@ const specs = [
     difficulty: 'beginner',
     match: 'float',
     statement:
-      'Convert a temperature from Celsius to Fahrenheit. The formula is F = C * 9 / 5 + 32.',
+      'Convert a temperature from Celsius to Fahrenheit. Use real-number division with the formula F = C * 9 / 5 + 32.',
     constraints: '-273 <= C <= 10000',
     inputSpec: 'Line 1: A single integer C (degrees Celsius).',
     outputSpec:
-      'Line 1: The equivalent temperature in Fahrenheit (within a small tolerance).',
+      'Line 1: The equivalent temperature in Fahrenheit. Any numeric value within a small tolerance is accepted.',
     solve: (input) => String((Number(firstLine(input)) * 9) / 5 + 32),
     cases: [
       { title: 'freezing', input: '0', hidden: false },
@@ -377,7 +406,7 @@ const specs = [
     solve: (input) =>
       String((firstLine(input).match(/[aeiou]/gi) ?? []).length),
     cases: [
-      { title: 'word', input: 'education', hidden: false },
+      { title: 'word', input: 'Education', hidden: false },
       { title: 'phrase', input: 'the quick brown fox', hidden: false },
       { title: 'none', input: 'rhythm', hidden: true },
     ],
@@ -388,7 +417,8 @@ const specs = [
     difficulty: 'easy',
     statement:
       'You are given a count n followed by n integers. Print their sum.',
-    constraints: '1 <= n <= 1000',
+    constraints:
+      '1 <= n <= 1000; each integer is between -1000000 and 1000000.',
     inputSpec: 'Line 1: The integer n. Line 2: n space-separated integers.',
     outputSpec: 'Line 1: The sum of the n integers.',
     solve: (input) => {
@@ -407,7 +437,8 @@ const specs = [
     difficulty: 'easy',
     statement:
       'You are given a count n followed by n integers. Print the largest of them.',
-    constraints: '1 <= n <= 1000',
+    constraints:
+      '1 <= n <= 1000; each integer is between -1000000 and 1000000.',
     inputSpec: 'Line 1: The integer n. Line 2: n space-separated integers.',
     outputSpec: 'Line 1: The maximum value.',
     solve: (input) => {
@@ -424,7 +455,8 @@ const specs = [
     id: 'factorial',
     title: 'Factorial',
     difficulty: 'easy',
-    statement: 'Read an integer n and print n! (the product 1 * 2 * ... * n).',
+    statement:
+      'Read an integer n and print n! (the product 1 * 2 * ... * n). Use a numeric type that can represent 20!.',
     constraints: '0 <= n <= 20',
     inputSpec: 'Line 1: A single integer n.',
     outputSpec: 'Line 1: The value n!.',
@@ -440,7 +472,7 @@ const specs = [
     title: 'Palindrome Check',
     difficulty: 'easy',
     statement:
-      'Print YES if the input string reads the same forwards and backwards, or NO otherwise.',
+      'Print YES if the input string reads the same forwards and backwards, or NO otherwise. Compare the characters exactly as given; case matters.',
     constraints: 'The line has 1 to 200 printable ASCII characters.',
     inputSpec: 'Line 1: A string s.',
     outputSpec: 'Line 1: YES if s is a palindrome, otherwise NO.',
@@ -452,6 +484,7 @@ const specs = [
       { title: 'palindrome', input: 'racecar', hidden: false },
       { title: 'not palindrome', input: 'hello', hidden: false },
       { title: 'single char', input: 'a', hidden: true },
+      { title: 'case-sensitive', input: 'Aa', hidden: true },
     ],
   },
   {
@@ -479,7 +512,8 @@ const specs = [
     difficulty: 'easy',
     statement:
       'You are given a count n followed by n integers. Print the smallest of them.',
-    constraints: '1 <= n <= 1000',
+    constraints:
+      '1 <= n <= 1000; each integer is between -1000000 and 1000000.',
     inputSpec: 'Line 1: The integer n. Line 2: n space-separated integers.',
     outputSpec: 'Line 1: The minimum value.',
     solve: (input) => {
@@ -565,7 +599,7 @@ const specs = [
     title: 'Nth Fibonacci',
     difficulty: 'medium',
     statement:
-      'Print the nth Fibonacci number, where F(1) = 1, F(2) = 1, and F(k) = F(k-1) + F(k-2).',
+      'Print the nth Fibonacci number, where F(1) = 1, F(2) = 1, and F(k) = F(k-1) + F(k-2). Use a numeric type that can represent F(50).',
     constraints: '1 <= n <= 50',
     inputSpec: 'Line 1: A single integer n.',
     outputSpec: 'Line 1: The nth Fibonacci number.',
@@ -601,7 +635,7 @@ const specs = [
     difficulty: 'medium',
     statement:
       'Count the number of whitespace-separated words in a line of text.',
-    constraints: 'The line has 0 to 500 characters.',
+    constraints: 'The line has 1 to 500 printable ASCII characters.',
     inputSpec: 'Line 1: A line of text.',
     outputSpec: 'Line 1: The number of words.',
     solve: (input) => {
@@ -661,7 +695,8 @@ const specs = [
     difficulty: 'medium',
     match: 'float',
     statement: 'Compute the average (arithmetic mean) of n integers.',
-    constraints: '1 <= n <= 1000',
+    constraints:
+      '1 <= n <= 1000; each integer is between -1000000 and 1000000.',
     inputSpec: 'Line 1: The integer n. Line 2: n space-separated integers.',
     outputSpec: 'Line 1: The average, within a small numeric tolerance.',
     solve: (input) => {
@@ -679,8 +714,10 @@ const specs = [
     id: 'count-occurrences',
     title: 'Count Occurrences',
     difficulty: 'medium',
-    statement: 'Count how many times a given character appears in a string.',
-    constraints: 'The string has 1 to 200 printable ASCII characters.',
+    statement:
+      'Count how many times a given character appears in a string. Matching is case-sensitive.',
+    constraints:
+      'The character and string contain printable ASCII characters; the string length is 1 to 200.',
     inputSpec: 'Line 1: A single character c. Line 2: A string s.',
     outputSpec: 'Line 1: The number of times c appears in s.',
     solve: (input) => {
@@ -693,6 +730,7 @@ const specs = [
       { title: 'banana', input: 'a\nbanana', hidden: false },
       { title: 'hello world', input: 'l\nhello world', hidden: false },
       { title: 'single', input: 'x\nboxy', hidden: true },
+      { title: 'none', input: 'z\nbanana', hidden: true },
     ],
   },
   {
@@ -754,7 +792,7 @@ const specs = [
     cases: [
       { title: 'ten', input: '10', hidden: false },
       { title: 'zero', input: '0', hidden: false },
-      { title: 'large', input: '255', hidden: true },
+      { title: 'max', input: '1000000000', hidden: true },
     ],
   },
   {
@@ -763,7 +801,8 @@ const specs = [
     difficulty: 'hard',
     statement:
       'Shift every letter of the text forward by k positions in the alphabet, wrapping around and preserving case. Non-letter characters are unchanged.',
-    constraints: '-1000 <= k <= 1000',
+    constraints:
+      '-1000 <= k <= 1000; the text has 1 to 200 printable ASCII characters.',
     inputSpec: 'Line 1: The integer shift k. Line 2: The text to encode.',
     outputSpec: 'Line 1: The encoded text.',
     solve: (input) => {
@@ -820,7 +859,8 @@ const specs = [
     cases: [
       { title: 'prime', input: '17', hidden: false },
       { title: 'composite', input: '4', hidden: false },
-      { title: 'large prime', input: '97', hidden: true },
+      { title: 'one', input: '1', hidden: true },
+      { title: 'large prime', input: '999983', hidden: true },
     ],
   },
   {
@@ -829,7 +869,7 @@ const specs = [
     difficulty: 'hard',
     statement:
       'Print YES if the two words are anagrams of each other (same letters in any order, case-insensitive), or NO otherwise.',
-    constraints: 'Each word has 1 to 100 lowercase letters.',
+    constraints: 'Each word has 1 to 100 ASCII letters.',
     inputSpec: 'Line 1: Word a. Line 2: Word b.',
     outputSpec: 'Line 1: YES or NO.',
     solve: (input) => {
@@ -839,7 +879,7 @@ const specs = [
       return a === b ? 'YES' : 'NO'
     },
     cases: [
-      { title: 'anagram', input: 'listen\nsilent', hidden: false },
+      { title: 'anagram', input: 'Listen\nSilent', hidden: false },
       { title: 'not anagram', input: 'hello\nworld', hidden: false },
       { title: 'cinema', input: 'cinema\niceman', hidden: true },
     ],
@@ -872,15 +912,16 @@ const specs = [
     title: 'Number to Words',
     difficulty: 'hard',
     statement:
-      'Convert an integer from 1 to 19 into its English word (e.g. 1 → "one", 13 → "thirteen").',
-    constraints: '1 <= n <= 19',
+      'Convert an integer from 1 to 999 into lowercase English words. Use spaces between words and no hyphens or "and" (for example, 342 -> "three hundred forty two").',
+    constraints: '1 <= n <= 999',
     inputSpec: 'Line 1: A single integer n.',
     outputSpec: 'Line 1: The English word for n.',
-    solve: (input) => numWords[Number(firstLine(input))] ?? '',
+    solve: (input) => numberToWords(Number(firstLine(input))),
     cases: [
       { title: 'one', input: '1', hidden: false },
-      { title: 'thirteen', input: '13', hidden: false },
+      { title: 'hundreds', input: '342', hidden: false },
       { title: 'nineteen', input: '19', hidden: true },
+      { title: 'max', input: '999', hidden: true },
     ],
   },
   {
@@ -891,7 +932,7 @@ const specs = [
       'Given a target value and a list of integers, print YES if any two distinct elements sum to the target, or NO otherwise.',
     constraints: '2 <= n <= 1000; all values fit in a 32-bit integer.',
     inputSpec:
-      'Line 1: The target integer. Line 2: n space-separated integers.',
+      'Line 1: The target integer. Line 2: n space-separated integers, where n is the number of values on this line.',
     outputSpec: 'Line 1: YES or NO.',
     solve: (input) => {
       const lines = input.split('\n')
@@ -908,6 +949,7 @@ const specs = [
       { title: 'found', input: '9\n2 7 11 15', hidden: false },
       { title: 'not found', input: '100\n1 2 3', hidden: false },
       { title: 'pair in middle', input: '6\n1 2 3 4 5', hidden: true },
+      { title: 'duplicate pair', input: '10\n5 5', hidden: true },
     ],
   },
 
@@ -924,7 +966,7 @@ const specs = [
     cases: [
       { title: 'first', input: '1', hidden: false },
       { title: 'sixth', input: '6', hidden: false },
-      { title: 'large', input: '1000', hidden: true },
+      { title: 'limit', input: '10000', hidden: true },
     ],
   },
   {
@@ -949,7 +991,7 @@ const specs = [
     difficulty: 'expert',
     statement:
       'Determine whether a string of brackets (), [], {} is correctly balanced and nested. Print YES or NO.',
-    constraints: 'The line has 0 to 1000 bracket characters.',
+    constraints: 'The line has 1 to 1000 bracket characters.',
     inputSpec: 'Line 1: A string of brackets.',
     outputSpec: 'Line 1: YES if balanced, otherwise NO.',
     solve: (input) => balanced(firstLine(input)),
@@ -966,7 +1008,8 @@ const specs = [
     difficulty: 'expert',
     statement:
       'Convert a number from one base to another. Digits above 9 use lowercase letters a-z. Output uses lowercase.',
-    constraints: '2 <= fromBase, toBase <= 36',
+    constraints:
+      '2 <= fromBase, toBase <= 36; the value is non-negative and fits in a 32-bit integer when converted to decimal.',
     inputSpec:
       'Line 1: A value, its source base, and its target base, space-separated.',
     outputSpec: 'Line 1: The value expressed in the target base.',
@@ -978,6 +1021,7 @@ const specs = [
       { title: 'bin to dec', input: '1010 2 10', hidden: false },
       { title: 'dec to hex', input: '255 10 16', hidden: false },
       { title: 'hex to dec', input: 'ff 16 10', hidden: true },
+      { title: 'base36', input: 'zz 36 10', hidden: true },
     ],
   },
   {
@@ -1005,7 +1049,8 @@ const specs = [
     difficulty: 'expert',
     statement:
       'Compute the trace of an N×N matrix — the sum of its main diagonal elements.',
-    constraints: '1 <= N <= 20; each value fits in a 32-bit integer.',
+    constraints:
+      '1 <= N <= 20; each value fits in a 32-bit integer. Use an accumulator large enough for the sum.',
     inputSpec:
       'Line 1: The integer N. Lines 2 to N+1: N space-separated integers per row.',
     outputSpec: 'Line 1: The trace.',
@@ -1038,7 +1083,7 @@ const specs = [
     title: 'Run-Length Decode',
     difficulty: 'expert',
     statement:
-      'Decode a run-length encoded string. The format is character followed by its count, e.g. "a3b2c1" → "aaabbc". Counts may be more than one digit.',
+      'Decode a run-length encoded string. The format is non-digit character followed by its count, e.g. "a3b2c1" -> "aaabbc". Counts may be more than one digit.',
     constraints:
       'The encoded string has 2 to 100 characters; decoded length is at most 500.',
     inputSpec: 'Line 1: A run-length encoded string.',
@@ -1065,6 +1110,7 @@ const specs = [
       { title: 'twelve', input: '12', hidden: false },
       { title: 'prime', input: '7', hidden: false },
       { title: 'sixty', input: '60', hidden: true },
+      { title: 'large composite', input: '999984', hidden: true },
     ],
   },
   {
@@ -1089,7 +1135,8 @@ const specs = [
     difficulty: 'expert',
     statement:
       'Rotate an array of n integers k positions to the right (elements shifted off the right end wrap to the front).',
-    constraints: '1 <= n <= 1000; 0 <= k <= 10000',
+    constraints:
+      '1 <= n <= 1000; 0 <= k <= 10000; each array value is between -1000000 and 1000000.',
     inputSpec:
       'Line 1: Two integers n and k. Line 2: n space-separated integers.',
     outputSpec: 'Line 1: The rotated array, space-separated.',
@@ -1104,6 +1151,7 @@ const specs = [
       { title: 'rotate two', input: '5 2\n1 2 3 4 5', hidden: false },
       { title: 'rotate one', input: '3 1\n7 8 9', hidden: false },
       { title: 'full rotation', input: '4 4\n1 2 3 4', hidden: true },
+      { title: 'large rotation', input: '5 12\n-1 0 1 2 3', hidden: true },
     ],
   },
 
@@ -1115,7 +1163,8 @@ const specs = [
     match: 'tokens',
     statement:
       'Read n integers and print them in ascending order. Output is compared by tokens, so spacing/newlines do not matter.',
-    constraints: '1 <= n <= 1000',
+    constraints:
+      '1 <= n <= 1000; each integer is between -1000000 and 1000000.',
     inputSpec: 'Line 1: The integer n. Line 2: n space-separated integers.',
     outputSpec: 'The n integers in ascending order.',
     solve: (input) => {
@@ -1127,7 +1176,7 @@ const specs = [
     cases: [
       { title: 'mixed', input: '5\n3 1 4 1 5', hidden: false },
       { title: 'descending', input: '3\n9 8 7', hidden: false },
-      { title: 'single', input: '1\n42', hidden: true },
+      { title: 'negatives', input: '5\n0 -1 3 -1 2', hidden: true },
     ],
   },
   {
@@ -1136,7 +1185,7 @@ const specs = [
     difficulty: 'medium',
     match: 'float',
     statement:
-      'Given a circle of integer radius r, print its area (pi * r^2). Output is checked with a numeric tolerance, so rounding is fine.',
+      'Given a circle of integer radius r, print its area (pi * r^2). Use a standard pi value if your language provides one; any numeric answer within tolerance is accepted.',
     constraints: '1 <= r <= 1000',
     inputSpec: 'Line 1: A single integer r.',
     outputSpec: 'Line 1: The area, within a small tolerance.',

@@ -13,7 +13,7 @@ const BASE_URL = `http://localhost:${String(PORT)}`
 const OUTPUT_DIR = 'screenshots'
 const SERVER_READY_TIMEOUT_MS = 30_000
 const SERVER_POLL_INTERVAL_MS = 300
-const RENDER_SETTLE_MS = 1_200
+const RENDER_SETTLE_MS = 2_500
 
 const VIEWPORTS = [
   { name: 'desktop', width: 1440, height: 900 },
@@ -22,6 +22,7 @@ const VIEWPORTS = [
 
 const SCREENS = [
   { name: 'home', path: '/' },
+  { name: 'account', path: '/account' },
   { name: 'new-puzzle', path: '/new' },
   { name: 'solve', path: '/solve/echo' },
 ]

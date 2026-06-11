@@ -17,7 +17,10 @@ export function Layout(): React.JSX.Element {
         </NavLink>
         <nav className={ui.nav}>
           <NavLink to={ROUTES.home} className={navClass} end>
-            Puzzles
+            Play
+          </NavLink>
+          <NavLink to={ROUTES.account} className={navClass}>
+            Account
           </NavLink>
           <NavLink to={ROUTES.newPuzzle} className={navClass}>
             New Puzzle

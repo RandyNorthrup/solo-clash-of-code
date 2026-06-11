@@ -38,11 +38,16 @@ export const TIMED_DANGER_THRESHOLD_SEC = 15
 export const STORAGE_KEY_USER_PUZZLES = 'coding-game:user-puzzles:v1'
 export const STORAGE_KEY_BEST_TIMES = 'coding-game:best-times:v1'
 export const STORAGE_KEY_DRAFTS = 'coding-game:drafts:v1'
+export const STORAGE_KEY_OPENAI_API_KEY_CIPHER =
+  'coding-game:openai-api-key-cipher:v1'
+export const SESSION_KEY_TEMP_PUZZLES = 'coding-game:temp-puzzles:v1'
+export const SESSION_KEY_AI_REFERENCE_SOLUTIONS =
+  'coding-game:ai-reference-solutions:v1'
 
 /** Editor defaults. */
 export const EDITOR_FONT_SIZE_PX = 14
 export const EDITOR_TAB_SIZE = 2
-export const EDITOR_MIN_HEIGHT_PX = 320
+export const EDITOR_MIN_HEIGHT_PX = 420
 
 /** Puzzle editor authoring limits. */
 export const MIN_TESTCASES_PER_PUZZLE = 1
@@ -85,3 +90,49 @@ export const COPY_FEEDBACK_DURATION_MS = 2000
 
 /** Indentation width for pretty-printed JSON exports. */
 export const JSON_INDENT_SPACES = 2
+
+/** OpenAI API integration. */
+export const OPENAI_PROXY_PATH = '/openai'
+export const OPENAI_RESPONSES_ENDPOINT = '/v1/responses'
+export const OPENAI_DEFAULT_BASE_URL = 'https://api.openai.com'
+export const OPENAI_PUZZLE_MODEL = 'gpt-5.5'
+export const OPENAI_REASONING_EFFORT = 'low'
+export const OPENAI_TEXT_VERBOSITY = 'low'
+export const OPENAI_API_TEST_PROMPT = 'Return only the word ok.'
+export const OPENAI_API_TEST_MAX_OUTPUT_TOKENS = 16
+export const OPENAI_PUZZLE_MAX_OUTPUT_TOKENS = 3000
+export const OPENAI_API_KEY_MIN_LENGTH = 20
+export const OPENAI_HTTP_OK_MIN = 200
+export const OPENAI_HTTP_OK_MAX_EXCLUSIVE = 300
+export const OPENAI_REQUEST_TIMEOUT_MS = 90_000
+
+/** Browser-side OpenAI key encryption. */
+export const OPENAI_KEY_DB_NAME = 'coding-game-openai-key'
+export const OPENAI_KEY_DB_VERSION = 1
+export const OPENAI_KEY_STORE_NAME = 'keys'
+export const OPENAI_KEY_RECORD_ID = 'openai-api-key'
+export const OPENAI_KEY_ALGORITHM = 'AES-GCM'
+export const OPENAI_KEY_LENGTH_BITS = 256
+export const OPENAI_KEY_IV_BYTES = 12
+export const OPENAI_KEY_CIPHER_VERSION = 1
+
+/** AI-generated puzzle quality thresholds. */
+export const AI_PUZZLE_MIN_VISIBLE_TESTCASES = 2
+export const AI_PUZZLE_MIN_HIDDEN_TESTCASES = 1
+export const AI_PUZZLE_MIN_TOTAL_TESTCASES = 3
+export const AI_PUZZLE_MIN_TITLE_LENGTH = 4
+export const AI_PUZZLE_MIN_TEXT_LENGTH = 8
+export const AI_PUZZLE_MAX_TITLE_CHARS = 80
+export const AI_PUZZLE_MAX_TESTCASES = 8
+export const AI_PUZZLE_MAX_FIELD_CHARS = 1600
+export const AI_PUZZLE_MIN_REFERENCE_SOLUTION_CHARS = 24
+export const AI_PUZZLE_MAX_REFERENCE_SOLUTION_CHARS = 4000
+export const AI_PUZZLE_GENERATION_ATTEMPTS = 3
+export const AI_PUZZLE_MIN_TESTCASE_IO_CHARS = 1
+export const AI_PUZZLE_MAX_TESTCASE_TITLE_CHARS = 64
+export const AI_PUZZLE_MAX_TESTCASE_IO_CHARS = 600
+export const AI_PUZZLE_MAX_CASE_LINES = 20
+export const AI_PUZZLE_MAX_SAFE_INTEGER_ABS = 1_000_000_000
+export const AI_PUZZLE_MAX_FAILURE_DETAILS = 3
+export const ASCII_PRINTABLE_MIN_CODE = 32
+export const ASCII_PRINTABLE_MAX_CODE = 126

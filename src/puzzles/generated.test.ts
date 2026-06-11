@@ -39,6 +39,25 @@ describe('generated puzzle bank', () => {
     }
   })
 
+  it('has enough visible samples and hidden validators per puzzle', () => {
+    for (const puzzle of BUILTIN_PUZZLES) {
+      const visible = puzzle.testcases.filter((testCase) => !testCase.hidden)
+      const hidden = puzzle.testcases.filter((testCase) => testCase.hidden)
+
+      expect(visible.length, `${puzzle.id} visible samples`).toBeGreaterThan(1)
+      expect(hidden.length, `${puzzle.id} hidden validators`).toBeGreaterThan(0)
+    }
+  })
+
+  it('does not repeat identical inputs within a puzzle', () => {
+    for (const puzzle of BUILTIN_PUZZLES) {
+      const inputs = puzzle.testcases.map((testCase) => testCase.input)
+      expect(new Set(inputs).size, `${puzzle.id} input uniqueness`).toBe(
+        inputs.length,
+      )
+    }
+  })
+
   it('covers every difficulty tier', () => {
     for (const difficulty of DIFFICULTIES) {
       expect(

@@ -4,6 +4,7 @@ export const PARAM_PUZZLE_ID = 'puzzleId'
 
 export const ROUTES = {
   home: '/',
+  account: '/account',
   newPuzzle: '/new',
   stats: '/stats',
   solve: `/solve/:${PARAM_PUZZLE_ID}`,

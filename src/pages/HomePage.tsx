@@ -17,12 +17,40 @@ import {
   getAllPuzzles,
   getUserPuzzles,
   saveUserPuzzle,
+  saveTempPuzzle,
 } from '../puzzles/store'
 import { DIFFICULTIES, DIFFICULTY_LABELS, type Puzzle } from '../puzzles/types'
+import { hasOpenAiApiKeyStored, loadOpenAiApiKey } from '../openai/keyStorage'
+import { generateAiPuzzle } from '../openai/puzzleGenerator'
 import { getBestTimeMs } from '../scores/store'
 import { PUZZLE_SHARE_PARAM, ROUTES, solvePath, type PlayMode } from '../routes'
 import { ui } from '../theme/ui'
 import { formatStopwatch } from '../utils/time'
+
+interface ModeCardProps {
+  readonly active: boolean
+  readonly title: string
+  readonly meta: string
+  readonly onClick: () => void
+}
+
+function ModeCard({
+  active,
+  title,
+  meta,
+  onClick,
+}: ModeCardProps): React.JSX.Element {
+  return (
+    <button
+      type="button"
+      className={active ? ui.modeCardActive : ui.modeCard}
+      onClick={onClick}
+    >
+      <span className={ui.modeTitle}>{title}</span>
+      <span className={ui.modeMeta}>{meta}</span>
+    </button>
+  )
+}
 
 function PuzzleCard({
   puzzle,
@@ -92,14 +120,48 @@ type ImportResult =
   | { readonly kind: 'success'; readonly count: number }
   | { readonly kind: 'error'; readonly message: string }
 
+function pickRandomPuzzle(puzzles: readonly Puzzle[]): Puzzle | null {
+  if (puzzles.length === 0) {
+    return null
+  }
+  const index = Math.floor(Math.random() * puzzles.length)
+  return puzzles[index] ?? null
+}
+
+function BuildingPuzzleModal(): React.JSX.Element {
+  return (
+    <div className={ui.modalBackdrop} role="status" aria-live="polite">
+      <div className={ui.modalPanel}>
+        <h2 className={ui.pageTitle}>Building your puzzle</h2>
+        <div className={ui.buildGraphic} aria-hidden="true">
+          <span className={ui.buildBar} />
+          <span className={ui.buildBarAlt} />
+          <span className={ui.buildBarTall} />
+          <span className={ui.buildBarAlt} />
+          <span className={ui.buildBar} />
+        </div>
+        <p className={ui.pageSubtitle}>
+          Creating prompt, samples, hidden validators, and stdin/stdout rules.
+        </p>
+      </div>
+    </div>
+  )
+}
+
 export function HomePage(): React.JSX.Element {
   const navigate = useNavigate()
+  const [selectedDifficulty, setSelectedDifficulty] =
+    useState<(typeof DIFFICULTIES)[number]>('beginner')
   const [mode, setMode] = useState<PlayMode>('practice')
   const [minutes, setMinutes] = useState<number>(DEFAULT_TIMED_MODE_MINUTES)
   const [puzzles, setPuzzles] = useState<readonly Puzzle[]>(getAllPuzzles)
   const [copiedId, setCopiedId] = useState<string | null>(null)
   const [importResult, setImportResult] = useState<ImportResult | null>(null)
+  const [isBuildingAiPuzzle, setIsBuildingAiPuzzle] = useState(false)
   const importInputRef = useRef<HTMLInputElement>(null)
+  const selectedPuzzles = puzzles.filter(
+    (puzzle) => puzzle.difficulty === selectedDifficulty,
+  )
 
   useEffect(() => {
     if (copiedId === null) return
@@ -121,6 +183,44 @@ export function HomePage(): React.JSX.Element {
     },
     [mode, minutes, navigate],
   )
+
+  const openQuickPuzzle = useCallback(() => {
+    const puzzle = pickRandomPuzzle(selectedPuzzles)
+    if (puzzle === null) {
+      setImportResult({
+        kind: 'error',
+        message: 'No puzzles found for the selected difficulty.',
+      })
+      return
+    }
+    openPuzzle(puzzle)
+  }, [openPuzzle, selectedPuzzles])
+
+  const openAiQuickPuzzle = useCallback(async () => {
+    if (!hasOpenAiApiKeyStored()) {
+      void navigate(ROUTES.account)
+      return
+    }
+    setIsBuildingAiPuzzle(true)
+    setImportResult(null)
+    try {
+      const apiKey = await loadOpenAiApiKey()
+      if (apiKey === null) {
+        throw new Error('No saved OpenAI key found.')
+      }
+      const puzzle = await generateAiPuzzle(apiKey, selectedDifficulty)
+      saveTempPuzzle(puzzle)
+      openPuzzle(puzzle)
+    } catch (err) {
+      setImportResult({
+        kind: 'error',
+        message:
+          err instanceof Error ? err.message : 'AI puzzle generation failed.',
+      })
+    } finally {
+      setIsBuildingAiPuzzle(false)
+    }
+  }, [navigate, openPuzzle, selectedDifficulty])
 
   const removePuzzle = useCallback((puzzle: Puzzle) => {
     if (window.confirm(`Delete "${puzzle.title}"? This cannot be undone.`)) {
@@ -175,74 +275,160 @@ export function HomePage(): React.JSX.Element {
 
   return (
     <div className={ui.page}>
-      <div>
-        <h1 className={ui.pageTitle}>Solo Clash of Code</h1>
-        <p className={ui.pageSubtitle}>
-          Race the clock or just beat your own best time. Pick a mode, then
-          choose a puzzle.
-        </p>
-      </div>
+      {isBuildingAiPuzzle && <BuildingPuzzleModal />}
 
-      <div className={ui.toolbar}>
-        <button
-          type="button"
-          className={mode === 'practice' ? ui.btnPrimary : ui.btnSecondary}
-          onClick={() => {
-            setMode('practice')
-          }}
-        >
-          Practice
-        </button>
-        <button
-          type="button"
-          className={mode === 'timed' ? ui.btnPrimary : ui.btnSecondary}
-          onClick={() => {
-            setMode('timed')
-          }}
-        >
-          Beat the Clock
-        </button>
-        {mode === 'timed' &&
-          TIMED_MODE_MINUTE_OPTIONS.map((option) => (
-            <button
-              key={option}
-              type="button"
-              className={minutes === option ? ui.btnPrimary : ui.btnSecondary}
-              onClick={() => {
-                setMinutes(option)
-              }}
-            >
-              {`${String(option)} min`}
-            </button>
-          ))}
-        <div className={ui.spacer} />
-        <button
-          type="button"
-          className={ui.btnSecondary}
-          onClick={handleExport}
-        >
-          Export JSON
-        </button>
-        <button
-          type="button"
-          className={ui.btnSecondary}
-          onClick={() => {
-            importInputRef.current?.click()
-          }}
-        >
-          Import JSON
-        </button>
-        <input
-          ref={importInputRef}
-          type="file"
-          accept=".json,application/json"
-          className="hidden"
-          onChange={handleImportFile}
-        />
+      <div className={ui.lobbyPanel}>
+        <div className={ui.lobbyHeader}>
+          <div className={ui.lobbyTitleBlock}>
+            <span className={ui.lobbyEyebrow}>Private solo lobby</span>
+            <h1 className={ui.pageTitle}>Solo Clash of Code</h1>
+            <p className={ui.pageSubtitle}>
+              Short stdin/stdout battles, local scores, live Judge0 execution.
+            </p>
+          </div>
+          <div className={ui.lobbyStats}>
+            <div className={ui.lobbyStat}>
+              <div className={ui.lobbyStatValue}>{puzzles.length}</div>
+              <div className={ui.lobbyStatLabel}>puzzles</div>
+            </div>
+            <div className={ui.lobbyStat}>
+              <div className={ui.lobbyStatValue}>{DIFFICULTIES.length}</div>
+              <div className={ui.lobbyStatLabel}>tiers</div>
+            </div>
+            <div className={ui.lobbyStat}>
+              <div className={ui.lobbyStatValue}>
+                {TIMED_MODE_MINUTE_OPTIONS.length}
+              </div>
+              <div className={ui.lobbyStatLabel}>timers</div>
+            </div>
+          </div>
+        </div>
+
+        <div className={ui.startGrid}>
+          <div className={ui.startPanel}>
+            <div className={ui.field}>
+              <label className={ui.label}>Difficulty</label>
+              <div className={ui.segmented}>
+                {DIFFICULTIES.map((difficulty) => (
+                  <button
+                    key={difficulty}
+                    type="button"
+                    className={
+                      selectedDifficulty === difficulty
+                        ? ui.segmentActive
+                        : ui.segment
+                    }
+                    onClick={() => {
+                      setSelectedDifficulty(difficulty)
+                    }}
+                  >
+                    {DIFFICULTY_LABELS[difficulty]}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div className={ui.quickActions}>
+              <button
+                type="button"
+                className={ui.btnHero}
+                onClick={openQuickPuzzle}
+              >
+                Quick play
+              </button>
+              <button
+                type="button"
+                className={ui.btnSecondary}
+                disabled={isBuildingAiPuzzle}
+                onClick={() => {
+                  void openAiQuickPuzzle()
+                }}
+              >
+                Quick play AI puzzle
+              </button>
+            </div>
+          </div>
+
+          <div className={ui.startPanel}>
+            <div className={ui.modeGrid}>
+              <ModeCard
+                active={mode === 'practice'}
+                title="Fastest practice"
+                meta="Stopwatch run. Submit all tests to record a best time."
+                onClick={() => {
+                  setMode('practice')
+                }}
+              />
+              <ModeCard
+                active={mode === 'timed'}
+                title="Beat the Clock"
+                meta="Countdown run. Solves after expiry stay unrecorded."
+                onClick={() => {
+                  setMode('timed')
+                }}
+              />
+            </div>
+
+            {mode === 'timed' && (
+              <div className={ui.minuteRail}>
+                {TIMED_MODE_MINUTE_OPTIONS.map((option) => (
+                  <button
+                    key={option}
+                    type="button"
+                    className={
+                      minutes === option ? ui.btnPrimary : ui.btnSecondary
+                    }
+                    onClick={() => {
+                      setMinutes(option)
+                    }}
+                  >
+                    {`${String(option)} min`}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+
+        <div className={ui.toolbar}>
+          <button
+            type="button"
+            className={ui.btnGhost}
+            onClick={() => {
+              void navigate(ROUTES.account)
+            }}
+          >
+            AI account
+          </button>
+          <div className={ui.spacer} />
+          <button
+            type="button"
+            className={ui.btnSecondary}
+            onClick={handleExport}
+          >
+            Export JSON
+          </button>
+          <button
+            type="button"
+            className={ui.btnSecondary}
+            onClick={() => {
+              importInputRef.current?.click()
+            }}
+          >
+            Import JSON
+          </button>
+          <input
+            ref={importInputRef}
+            type="file"
+            accept=".json,application/json"
+            className={ui.fileInput}
+            onChange={handleImportFile}
+          />
+        </div>
       </div>
 
       {importResult !== null && (
         <p
+          role="alert"
           className={
             importResult.kind === 'success' ? ui.bannerSuccess : ui.bannerError
           }
@@ -253,33 +439,25 @@ export function HomePage(): React.JSX.Element {
         </p>
       )}
 
-      {DIFFICULTIES.map((difficulty) => {
-        const group = puzzles.filter(
-          (puzzle) => puzzle.difficulty === difficulty,
-        )
-        if (group.length === 0) {
-          return null
-        }
-        return (
-          <section key={difficulty} className={ui.page}>
-            <h2 className={ui.sectionTitle}>{DIFFICULTY_LABELS[difficulty]}</h2>
-            <div className={ui.puzzleGrid}>
-              {group.map((puzzle) => (
-                <PuzzleCard
-                  key={puzzle.id}
-                  puzzle={puzzle}
-                  onOpen={openPuzzle}
-                  onDelete={removePuzzle}
-                  onShare={(p) => {
-                    void sharePuzzle(p)
-                  }}
-                  isCopied={copiedId === puzzle.id}
-                />
-              ))}
-            </div>
-          </section>
-        )
-      })}
+      <section className={ui.page}>
+        <h2 className={ui.sectionTitle}>
+          {DIFFICULTY_LABELS[selectedDifficulty]}
+        </h2>
+        <div className={ui.puzzleGrid}>
+          {selectedPuzzles.map((puzzle) => (
+            <PuzzleCard
+              key={puzzle.id}
+              puzzle={puzzle}
+              onOpen={openPuzzle}
+              onDelete={removePuzzle}
+              onShare={(p) => {
+                void sharePuzzle(p)
+              }}
+              isCopied={copiedId === puzzle.id}
+            />
+          ))}
+        </div>
+      </section>
     </div>
   )
 }

@@ -271,8 +271,8 @@ export const GENERATED_PUZZLES: readonly Puzzle[] = [
     "id": "count-chars",
     "title": "Character Count",
     "difficulty": "beginner",
-    "statement": "Read a line of text and print the number of characters it contains.",
-    "constraints": "The line has 0 to 200 printable ASCII characters.",
+    "statement": "Read a line of text and print the number of characters it contains. Spaces count as characters.",
+    "constraints": "The line has 1 to 200 printable ASCII characters.",
     "inputSpec": "Line 1: A string s.",
     "outputSpec": "Line 1: The number of characters in s.",
     "source": "builtin",
@@ -286,9 +286,9 @@ export const GENERATED_PUZZLES: readonly Puzzle[] = [
       },
       {
         "id": "count-chars-1",
-        "title": "short",
-        "input": "hi",
-        "expectedOutput": "2",
+        "title": "with space",
+        "input": "hi there",
+        "expectedOutput": "8",
         "hidden": false
       },
       {
@@ -304,10 +304,10 @@ export const GENERATED_PUZZLES: readonly Puzzle[] = [
     "id": "celsius-to-fahrenheit",
     "title": "Celsius to Fahrenheit",
     "difficulty": "beginner",
-    "statement": "Convert a temperature from Celsius to Fahrenheit. The formula is F = C * 9 / 5 + 32.",
+    "statement": "Convert a temperature from Celsius to Fahrenheit. Use real-number division with the formula F = C * 9 / 5 + 32.",
     "constraints": "-273 <= C <= 10000",
     "inputSpec": "Line 1: A single integer C (degrees Celsius).",
-    "outputSpec": "Line 1: The equivalent temperature in Fahrenheit (within a small tolerance).",
+    "outputSpec": "Line 1: The equivalent temperature in Fahrenheit. Any numeric value within a small tolerance is accepted.",
     "source": "builtin",
     "testcases": [
       {
@@ -382,7 +382,7 @@ export const GENERATED_PUZZLES: readonly Puzzle[] = [
       {
         "id": "count-vowels-0",
         "title": "word",
-        "input": "education",
+        "input": "Education",
         "expectedOutput": "5",
         "hidden": false
       },
@@ -407,7 +407,7 @@ export const GENERATED_PUZZLES: readonly Puzzle[] = [
     "title": "Sum a List",
     "difficulty": "easy",
     "statement": "You are given a count n followed by n integers. Print their sum.",
-    "constraints": "1 <= n <= 1000",
+    "constraints": "1 <= n <= 1000; each integer is between -1000000 and 1000000.",
     "inputSpec": "Line 1: The integer n. Line 2: n space-separated integers.",
     "outputSpec": "Line 1: The sum of the n integers.",
     "source": "builtin",
@@ -440,7 +440,7 @@ export const GENERATED_PUZZLES: readonly Puzzle[] = [
     "title": "Largest in List",
     "difficulty": "easy",
     "statement": "You are given a count n followed by n integers. Print the largest of them.",
-    "constraints": "1 <= n <= 1000",
+    "constraints": "1 <= n <= 1000; each integer is between -1000000 and 1000000.",
     "inputSpec": "Line 1: The integer n. Line 2: n space-separated integers.",
     "outputSpec": "Line 1: The maximum value.",
     "source": "builtin",
@@ -472,7 +472,7 @@ export const GENERATED_PUZZLES: readonly Puzzle[] = [
     "id": "factorial",
     "title": "Factorial",
     "difficulty": "easy",
-    "statement": "Read an integer n and print n! (the product 1 * 2 * ... * n).",
+    "statement": "Read an integer n and print n! (the product 1 * 2 * ... * n). Use a numeric type that can represent 20!.",
     "constraints": "0 <= n <= 20",
     "inputSpec": "Line 1: A single integer n.",
     "outputSpec": "Line 1: The value n!.",
@@ -505,7 +505,7 @@ export const GENERATED_PUZZLES: readonly Puzzle[] = [
     "id": "palindrome-check",
     "title": "Palindrome Check",
     "difficulty": "easy",
-    "statement": "Print YES if the input string reads the same forwards and backwards, or NO otherwise.",
+    "statement": "Print YES if the input string reads the same forwards and backwards, or NO otherwise. Compare the characters exactly as given; case matters.",
     "constraints": "The line has 1 to 200 printable ASCII characters.",
     "inputSpec": "Line 1: A string s.",
     "outputSpec": "Line 1: YES if s is a palindrome, otherwise NO.",
@@ -530,6 +530,13 @@ export const GENERATED_PUZZLES: readonly Puzzle[] = [
         "title": "single char",
         "input": "a",
         "expectedOutput": "YES",
+        "hidden": true
+      },
+      {
+        "id": "palindrome-check-3",
+        "title": "case-sensitive",
+        "input": "Aa",
+        "expectedOutput": "NO",
         "hidden": true
       }
     ]
@@ -572,7 +579,7 @@ export const GENERATED_PUZZLES: readonly Puzzle[] = [
     "title": "Smallest in List",
     "difficulty": "easy",
     "statement": "You are given a count n followed by n integers. Print the smallest of them.",
-    "constraints": "1 <= n <= 1000",
+    "constraints": "1 <= n <= 1000; each integer is between -1000000 and 1000000.",
     "inputSpec": "Line 1: The integer n. Line 2: n space-separated integers.",
     "outputSpec": "Line 1: The minimum value.",
     "source": "builtin",
@@ -710,7 +717,7 @@ export const GENERATED_PUZZLES: readonly Puzzle[] = [
     "id": "nth-fibonacci",
     "title": "Nth Fibonacci",
     "difficulty": "medium",
-    "statement": "Print the nth Fibonacci number, where F(1) = 1, F(2) = 1, and F(k) = F(k-1) + F(k-2).",
+    "statement": "Print the nth Fibonacci number, where F(1) = 1, F(2) = 1, and F(k) = F(k-1) + F(k-2). Use a numeric type that can represent F(50).",
     "constraints": "1 <= n <= 50",
     "inputSpec": "Line 1: A single integer n.",
     "outputSpec": "Line 1: The nth Fibonacci number.",
@@ -777,7 +784,7 @@ export const GENERATED_PUZZLES: readonly Puzzle[] = [
     "title": "Word Count",
     "difficulty": "medium",
     "statement": "Count the number of whitespace-separated words in a line of text.",
-    "constraints": "The line has 0 to 500 characters.",
+    "constraints": "The line has 1 to 500 printable ASCII characters.",
     "inputSpec": "Line 1: A line of text.",
     "outputSpec": "Line 1: The number of words.",
     "source": "builtin",
@@ -876,7 +883,7 @@ export const GENERATED_PUZZLES: readonly Puzzle[] = [
     "title": "Average",
     "difficulty": "medium",
     "statement": "Compute the average (arithmetic mean) of n integers.",
-    "constraints": "1 <= n <= 1000",
+    "constraints": "1 <= n <= 1000; each integer is between -1000000 and 1000000.",
     "inputSpec": "Line 1: The integer n. Line 2: n space-separated integers.",
     "outputSpec": "Line 1: The average, within a small numeric tolerance.",
     "source": "builtin",
@@ -911,8 +918,8 @@ export const GENERATED_PUZZLES: readonly Puzzle[] = [
     "id": "count-occurrences",
     "title": "Count Occurrences",
     "difficulty": "medium",
-    "statement": "Count how many times a given character appears in a string.",
-    "constraints": "The string has 1 to 200 printable ASCII characters.",
+    "statement": "Count how many times a given character appears in a string. Matching is case-sensitive.",
+    "constraints": "The character and string contain printable ASCII characters; the string length is 1 to 200.",
     "inputSpec": "Line 1: A single character c. Line 2: A string s.",
     "outputSpec": "Line 1: The number of times c appears in s.",
     "source": "builtin",
@@ -936,6 +943,13 @@ export const GENERATED_PUZZLES: readonly Puzzle[] = [
         "title": "single",
         "input": "x\nboxy",
         "expectedOutput": "1",
+        "hidden": true
+      },
+      {
+        "id": "count-occurrences-3",
+        "title": "none",
+        "input": "z\nbanana",
+        "expectedOutput": "0",
         "hidden": true
       }
     ]
@@ -1032,9 +1046,9 @@ export const GENERATED_PUZZLES: readonly Puzzle[] = [
       },
       {
         "id": "to-binary-2",
-        "title": "large",
-        "input": "255",
-        "expectedOutput": "11111111",
+        "title": "max",
+        "input": "1000000000",
+        "expectedOutput": "111011100110101100101000000000",
         "hidden": true
       }
     ]
@@ -1044,7 +1058,7 @@ export const GENERATED_PUZZLES: readonly Puzzle[] = [
     "title": "Caesar Cipher",
     "difficulty": "hard",
     "statement": "Shift every letter of the text forward by k positions in the alphabet, wrapping around and preserving case. Non-letter characters are unchanged.",
-    "constraints": "-1000 <= k <= 1000",
+    "constraints": "-1000 <= k <= 1000; the text has 1 to 200 printable ASCII characters.",
     "inputSpec": "Line 1: The integer shift k. Line 2: The text to encode.",
     "outputSpec": "Line 1: The encoded text.",
     "source": "builtin",
@@ -1164,8 +1178,15 @@ export const GENERATED_PUZZLES: readonly Puzzle[] = [
       },
       {
         "id": "is-prime-2",
+        "title": "one",
+        "input": "1",
+        "expectedOutput": "NO",
+        "hidden": true
+      },
+      {
+        "id": "is-prime-3",
         "title": "large prime",
-        "input": "97",
+        "input": "999983",
         "expectedOutput": "YES",
         "hidden": true
       }
@@ -1176,7 +1197,7 @@ export const GENERATED_PUZZLES: readonly Puzzle[] = [
     "title": "Anagram Check",
     "difficulty": "hard",
     "statement": "Print YES if the two words are anagrams of each other (same letters in any order, case-insensitive), or NO otherwise.",
-    "constraints": "Each word has 1 to 100 lowercase letters.",
+    "constraints": "Each word has 1 to 100 ASCII letters.",
     "inputSpec": "Line 1: Word a. Line 2: Word b.",
     "outputSpec": "Line 1: YES or NO.",
     "source": "builtin",
@@ -1184,7 +1205,7 @@ export const GENERATED_PUZZLES: readonly Puzzle[] = [
       {
         "id": "anagram-check-0",
         "title": "anagram",
-        "input": "listen\nsilent",
+        "input": "Listen\nSilent",
         "expectedOutput": "YES",
         "hidden": false
       },
@@ -1248,8 +1269,8 @@ export const GENERATED_PUZZLES: readonly Puzzle[] = [
     "id": "number-to-words",
     "title": "Number to Words",
     "difficulty": "hard",
-    "statement": "Convert an integer from 1 to 19 into its English word (e.g. 1 → \"one\", 13 → \"thirteen\").",
-    "constraints": "1 <= n <= 19",
+    "statement": "Convert an integer from 1 to 999 into lowercase English words. Use spaces between words and no hyphens or \"and\" (for example, 342 -> \"three hundred forty two\").",
+    "constraints": "1 <= n <= 999",
     "inputSpec": "Line 1: A single integer n.",
     "outputSpec": "Line 1: The English word for n.",
     "source": "builtin",
@@ -1263,9 +1284,9 @@ export const GENERATED_PUZZLES: readonly Puzzle[] = [
       },
       {
         "id": "number-to-words-1",
-        "title": "thirteen",
-        "input": "13",
-        "expectedOutput": "thirteen",
+        "title": "hundreds",
+        "input": "342",
+        "expectedOutput": "three hundred forty two",
         "hidden": false
       },
       {
@@ -1273,6 +1294,13 @@ export const GENERATED_PUZZLES: readonly Puzzle[] = [
         "title": "nineteen",
         "input": "19",
         "expectedOutput": "nineteen",
+        "hidden": true
+      },
+      {
+        "id": "number-to-words-3",
+        "title": "max",
+        "input": "999",
+        "expectedOutput": "nine hundred ninety nine",
         "hidden": true
       }
     ]
@@ -1283,7 +1311,7 @@ export const GENERATED_PUZZLES: readonly Puzzle[] = [
     "difficulty": "hard",
     "statement": "Given a target value and a list of integers, print YES if any two distinct elements sum to the target, or NO otherwise.",
     "constraints": "2 <= n <= 1000; all values fit in a 32-bit integer.",
-    "inputSpec": "Line 1: The target integer. Line 2: n space-separated integers.",
+    "inputSpec": "Line 1: The target integer. Line 2: n space-separated integers, where n is the number of values on this line.",
     "outputSpec": "Line 1: YES or NO.",
     "source": "builtin",
     "testcases": [
@@ -1305,6 +1333,13 @@ export const GENERATED_PUZZLES: readonly Puzzle[] = [
         "id": "two-sum-exists-2",
         "title": "pair in middle",
         "input": "6\n1 2 3 4 5",
+        "expectedOutput": "YES",
+        "hidden": true
+      },
+      {
+        "id": "two-sum-exists-3",
+        "title": "duplicate pair",
+        "input": "10\n5 5",
         "expectedOutput": "YES",
         "hidden": true
       }
@@ -1336,9 +1371,9 @@ export const GENERATED_PUZZLES: readonly Puzzle[] = [
       },
       {
         "id": "nth-prime-2",
-        "title": "large",
-        "input": "1000",
-        "expectedOutput": "7919",
+        "title": "limit",
+        "input": "10000",
+        "expectedOutput": "104729",
         "hidden": true
       }
     ]
@@ -1381,7 +1416,7 @@ export const GENERATED_PUZZLES: readonly Puzzle[] = [
     "title": "Balanced Brackets",
     "difficulty": "expert",
     "statement": "Determine whether a string of brackets (), [], {} is correctly balanced and nested. Print YES or NO.",
-    "constraints": "The line has 0 to 1000 bracket characters.",
+    "constraints": "The line has 1 to 1000 bracket characters.",
     "inputSpec": "Line 1: A string of brackets.",
     "outputSpec": "Line 1: YES if balanced, otherwise NO.",
     "source": "builtin",
@@ -1421,7 +1456,7 @@ export const GENERATED_PUZZLES: readonly Puzzle[] = [
     "title": "Base Conversion",
     "difficulty": "expert",
     "statement": "Convert a number from one base to another. Digits above 9 use lowercase letters a-z. Output uses lowercase.",
-    "constraints": "2 <= fromBase, toBase <= 36",
+    "constraints": "2 <= fromBase, toBase <= 36; the value is non-negative and fits in a 32-bit integer when converted to decimal.",
     "inputSpec": "Line 1: A value, its source base, and its target base, space-separated.",
     "outputSpec": "Line 1: The value expressed in the target base.",
     "source": "builtin",
@@ -1445,6 +1480,13 @@ export const GENERATED_PUZZLES: readonly Puzzle[] = [
         "title": "hex to dec",
         "input": "ff 16 10",
         "expectedOutput": "255",
+        "hidden": true
+      },
+      {
+        "id": "base-convert-3",
+        "title": "base36",
+        "input": "zz 36 10",
+        "expectedOutput": "1295",
         "hidden": true
       }
     ]
@@ -1487,7 +1529,7 @@ export const GENERATED_PUZZLES: readonly Puzzle[] = [
     "title": "Matrix Trace",
     "difficulty": "expert",
     "statement": "Compute the trace of an N×N matrix — the sum of its main diagonal elements.",
-    "constraints": "1 <= N <= 20; each value fits in a 32-bit integer.",
+    "constraints": "1 <= N <= 20; each value fits in a 32-bit integer. Use an accumulator large enough for the sum.",
     "inputSpec": "Line 1: The integer N. Lines 2 to N+1: N space-separated integers per row.",
     "outputSpec": "Line 1: The trace.",
     "source": "builtin",
@@ -1519,7 +1561,7 @@ export const GENERATED_PUZZLES: readonly Puzzle[] = [
     "id": "run-length-decode",
     "title": "Run-Length Decode",
     "difficulty": "expert",
-    "statement": "Decode a run-length encoded string. The format is character followed by its count, e.g. \"a3b2c1\" → \"aaabbc\". Counts may be more than one digit.",
+    "statement": "Decode a run-length encoded string. The format is non-digit character followed by its count, e.g. \"a3b2c1\" -> \"aaabbc\". Counts may be more than one digit.",
     "constraints": "The encoded string has 2 to 100 characters; decoded length is at most 500.",
     "inputSpec": "Line 1: A run-length encoded string.",
     "outputSpec": "Line 1: The decoded string.",
@@ -1578,6 +1620,13 @@ export const GENERATED_PUZZLES: readonly Puzzle[] = [
         "input": "60",
         "expectedOutput": "2 2 3 5",
         "hidden": true
+      },
+      {
+        "id": "prime-factors-3",
+        "title": "large composite",
+        "input": "999984",
+        "expectedOutput": "2 2 2 2 3 83 251",
+        "hidden": true
       }
     ]
   },
@@ -1619,7 +1668,7 @@ export const GENERATED_PUZZLES: readonly Puzzle[] = [
     "title": "Rotate Array",
     "difficulty": "expert",
     "statement": "Rotate an array of n integers k positions to the right (elements shifted off the right end wrap to the front).",
-    "constraints": "1 <= n <= 1000; 0 <= k <= 10000",
+    "constraints": "1 <= n <= 1000; 0 <= k <= 10000; each array value is between -1000000 and 1000000.",
     "inputSpec": "Line 1: Two integers n and k. Line 2: n space-separated integers.",
     "outputSpec": "Line 1: The rotated array, space-separated.",
     "source": "builtin",
@@ -1644,6 +1693,13 @@ export const GENERATED_PUZZLES: readonly Puzzle[] = [
         "input": "4 4\n1 2 3 4",
         "expectedOutput": "1 2 3 4",
         "hidden": true
+      },
+      {
+        "id": "rotate-array-3",
+        "title": "large rotation",
+        "input": "5 12\n-1 0 1 2 3",
+        "expectedOutput": "2 3 -1 0 1",
+        "hidden": true
       }
     ]
   },
@@ -1652,7 +1708,7 @@ export const GENERATED_PUZZLES: readonly Puzzle[] = [
     "title": "Sort Numbers",
     "difficulty": "easy",
     "statement": "Read n integers and print them in ascending order. Output is compared by tokens, so spacing/newlines do not matter.",
-    "constraints": "1 <= n <= 1000",
+    "constraints": "1 <= n <= 1000; each integer is between -1000000 and 1000000.",
     "inputSpec": "Line 1: The integer n. Line 2: n space-separated integers.",
     "outputSpec": "The n integers in ascending order.",
     "source": "builtin",
@@ -1675,9 +1731,9 @@ export const GENERATED_PUZZLES: readonly Puzzle[] = [
       },
       {
         "id": "sort-numbers-2",
-        "title": "single",
-        "input": "1\n42",
-        "expectedOutput": "42",
+        "title": "negatives",
+        "input": "5\n0 -1 3 -1 2",
+        "expectedOutput": "-1 -1 0 2 3",
         "hidden": true,
         "match": "tokens"
       }
@@ -1687,7 +1743,7 @@ export const GENERATED_PUZZLES: readonly Puzzle[] = [
     "id": "circle-area",
     "title": "Circle Area",
     "difficulty": "medium",
-    "statement": "Given a circle of integer radius r, print its area (pi * r^2). Output is checked with a numeric tolerance, so rounding is fine.",
+    "statement": "Given a circle of integer radius r, print its area (pi * r^2). Use a standard pi value if your language provides one; any numeric answer within tolerance is accepted.",
     "constraints": "1 <= r <= 1000",
     "inputSpec": "Line 1: A single integer r.",
     "outputSpec": "Line 1: The area, within a small tolerance.",
