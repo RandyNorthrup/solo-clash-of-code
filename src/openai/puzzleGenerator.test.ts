@@ -48,6 +48,15 @@ const VALID_PAYLOAD = {
   constraints: '-1000 <= a, b <= 1000',
   inputSpec: 'Line 1: Two space-separated integers a and b.',
   outputSpec: 'Line 1: The absolute value of a - b.',
+  ioFormat: [
+    {
+      kind: 'read',
+      vars: [
+        { name: 'a', type: 'int' },
+        { name: 'b', type: 'int' },
+      ],
+    },
+  ],
   referenceSolutionPython:
     'import sys\nparts = sys.stdin.read().split()\na, b = map(int, parts[:2])\nprint(abs(a - b))',
   testcases: [

@@ -1,6 +1,6 @@
 // Live end-to-end certification (C1/C2 for M1+M3): drives a real solve through
-// the dev server (which proxies to Judge0). Opens the Echo puzzle, submits the
-// default Python template (which already solves it), and asserts a success
+// the dev server (which proxies to Judge0). Opens the Echo puzzle, types a
+// Python solution over the generated starter stub, and asserts a success
 // banner appears — proving real execution + grading + best-time recording.
 //
 // Requires Judge0 running (npm run judge0:up). Usage: npm run walkthrough
@@ -31,6 +31,9 @@ async function waitForServer() {
   }
   throw new Error('Dev server did not become ready')
 }
+
+// Correct Python solution for Echo (the starter stub is intentionally a stub).
+const ECHO_SOLUTION = 'import sys\nprint(sys.stdin.readline().rstrip())'
 
 // Correct Python solution for the float-checked Circle Area puzzle.
 const CIRCLE_AREA_SOLUTION =
@@ -79,8 +82,8 @@ async function main() {
     })
     const page = await context.newPage()
 
-    // Echo: default template already solves it (trimmed checker).
-    await solve(page, 'echo', null)
+    // Echo: type a solution over the generated starter stub (trimmed checker).
+    await solve(page, 'echo', ECHO_SOLUTION)
     mkdirSync('screenshots', { recursive: true })
     await page.screenshot({ path: OUTPUT, fullPage: true })
 

@@ -44,6 +44,38 @@ export interface TestCase {
   readonly match?: MatchMode
 }
 
+/**
+ * Structured input descriptor that drives the per-language starter-stub
+ * generator (the "transposer", see {@link ../judge/stubgen}). A small,
+ * deterministic DSL — no free-text parsing — so the same puzzle always yields
+ * the same stub in any language.
+ */
+export type IoScalarType = 'int' | 'float' | 'word'
+export type IoVarType = IoScalarType | 'string'
+
+interface IoVar {
+  readonly name: string
+  readonly type: IoVarType
+}
+
+/** Read one line. A single `string` var captures the whole line; otherwise the
+ *  line is split on spaces into the listed scalar vars. */
+interface IoReadInstruction {
+  readonly kind: 'read'
+  readonly vars: readonly IoVar[]
+}
+
+/** Read one line of space-separated scalars into a list named `name`. */
+interface IoListInstruction {
+  readonly kind: 'list'
+  readonly name: string
+  readonly type: IoScalarType
+}
+
+export type IoInstruction = IoReadInstruction | IoListInstruction
+
+export type IoFormat = readonly IoInstruction[]
+
 export interface Puzzle {
   readonly id: string
   readonly title: string
@@ -55,4 +87,6 @@ export interface Puzzle {
   readonly outputSpec: string
   readonly testcases: readonly TestCase[]
   readonly source: PuzzleSource
+  /** Optional structured input format used to generate per-language stubs. */
+  readonly ioFormat?: IoFormat
 }

@@ -1198,25 +1198,127 @@ const specs = [
   },
 ]
 
-const puzzles = specs.map((spec) => ({
-  id: spec.id,
-  title: spec.title,
-  difficulty: spec.difficulty,
-  statement: spec.statement,
-  constraints: spec.constraints,
-  inputSpec: spec.inputSpec,
-  outputSpec: spec.outputSpec,
-  source: 'builtin',
-  testcases: spec.cases.map((c, index) => ({
-    id: `${spec.id}-${String(index)}`,
-    title: c.title,
-    input: c.input,
-    expectedOutput: spec.solve(c.input),
-    hidden: c.hidden,
-    // Only emit `match` when a non-default mode is specified.
-    ...(spec.match ? { match: spec.match } : {}),
-  })),
-}))
+// --- Per-puzzle input descriptors that drive the per-language stub generator
+// (the "transposer", see src/judge/stubgen.ts). Variable names match the spec
+// text so they also render as inline chips. Grid/matrix puzzles (matrix-trace)
+// intentionally omit a descriptor and fall back to the language template.
+const rd = (...vars) => ({ kind: 'read', vars })
+const vr = (name, type) => ({ name, type })
+const ls = (name, type) => ({ kind: 'list', name, type })
+
+const IO_FORMATS = {
+  // beginner
+  echo: [rd(vr('s', 'string'))],
+  'sum-two': [rd(vr('a', 'int'), vr('b', 'int'))],
+  'rectangle-area': [rd(vr('w', 'int'), vr('h', 'int'))],
+  'max-two': [rd(vr('a', 'int'), vr('b', 'int'))],
+  'double-it': [rd(vr('n', 'int'))],
+  'is-even': [rd(vr('n', 'int'))],
+  'absolute-value': [rd(vr('n', 'int'))],
+  'min-two': [rd(vr('a', 'int'), vr('b', 'int'))],
+  'count-chars': [rd(vr('s', 'string'))],
+  'celsius-to-fahrenheit': [rd(vr('c', 'int'))],
+  // easy
+  'reverse-string': [rd(vr('s', 'string'))],
+  'count-vowels': [rd(vr('s', 'string'))],
+  'sum-list': [rd(vr('n', 'int')), ls('a', 'int')],
+  'max-in-list': [rd(vr('n', 'int')), ls('a', 'int')],
+  factorial: [rd(vr('n', 'int'))],
+  'palindrome-check': [rd(vr('s', 'string'))],
+  'repeat-string': [rd(vr('n', 'int')), rd(vr('s', 'string'))],
+  'min-in-list': [rd(vr('n', 'int')), ls('a', 'int')],
+  'sum-squares': [rd(vr('n', 'int'))],
+  'sort-numbers': [rd(vr('n', 'int')), ls('a', 'int')],
+  // medium
+  fizzbuzz: [rd(vr('n', 'int'))],
+  'jigsaw-tabs': [rd(vr('h', 'int'), vr('w', 'int'))],
+  'nth-fibonacci': [rd(vr('n', 'int'))],
+  gcd: [rd(vr('a', 'int'), vr('b', 'int'))],
+  'word-count': [rd(vr('s', 'string'))],
+  'sum-digits': [rd(vr('n', 'int'))],
+  lcm: [rd(vr('a', 'int'), vr('b', 'int'))],
+  average: [rd(vr('n', 'int')), ls('a', 'int')],
+  'count-occurrences': [rd(vr('c', 'word')), rd(vr('s', 'string'))],
+  'missing-number': [rd(vr('n', 'int')), ls('a', 'int')],
+  'circle-area': [rd(vr('r', 'int'))],
+  // hard
+  'count-primes': [rd(vr('n', 'int'))],
+  'to-binary': [rd(vr('n', 'int'))],
+  'caesar-cipher': [rd(vr('k', 'int')), rd(vr('text', 'string'))],
+  'digital-root': [rd(vr('n', 'int'))],
+  'run-length-encode': [rd(vr('s', 'string'))],
+  'is-prime': [rd(vr('n', 'int'))],
+  'anagram-check': [rd(vr('a', 'word')), rd(vr('b', 'word'))],
+  'triangle-type': [rd(vr('a', 'int'), vr('b', 'int'), vr('c', 'int'))],
+  'number-to-words': [rd(vr('n', 'int'))],
+  'two-sum-exists': [rd(vr('target', 'int')), ls('a', 'int')],
+  // expert
+  'nth-prime': [rd(vr('n', 'int'))],
+  'collatz-steps': [rd(vr('n', 'int'))],
+  'balanced-brackets': [rd(vr('s', 'string'))],
+  'base-convert': [
+    rd(vr('value', 'word'), vr('base', 'int'), vr('target', 'int')),
+  ],
+  'longest-word': [rd(vr('s', 'string'))],
+  'run-length-decode': [rd(vr('s', 'string'))],
+  'prime-factors': [rd(vr('n', 'int'))],
+  'luhn-check': [rd(vr('s', 'string'))],
+  'rotate-array': [rd(vr('n', 'int'), vr('k', 'int')), ls('a', 'int')],
+}
+
+const collectVarNames = (ioFormat) => {
+  const names = []
+  for (const instruction of ioFormat) {
+    if (instruction.kind === 'read') {
+      for (const variable of instruction.vars) names.push(variable.name)
+    } else {
+      names.push(instruction.name)
+    }
+  }
+  return names
+}
+
+const escapeForRegExp = (value) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+
+// Wrap whole-word occurrences of each variable name in backticks so SpecText
+// renders them as CoC-style chips. Applied to Input/Output/Constraints only —
+// the Goal prose stays unchipped, matching the reference layout.
+const markupVars = (text, names) => {
+  let out = text
+  for (const name of names) {
+    out = out.replace(
+      new RegExp(`\\b${escapeForRegExp(name)}\\b`, 'g'),
+      `\`${name}\``,
+    )
+  }
+  return out
+}
+
+const puzzles = specs.map((spec) => {
+  const ioFormat = IO_FORMATS[spec.id]
+  const names = ioFormat ? collectVarNames(ioFormat) : []
+  return {
+    id: spec.id,
+    title: spec.title,
+    difficulty: spec.difficulty,
+    statement: spec.statement,
+    constraints: markupVars(spec.constraints, names),
+    inputSpec: markupVars(spec.inputSpec, names),
+    outputSpec: markupVars(spec.outputSpec, names),
+    source: 'builtin',
+    testcases: spec.cases.map((c, index) => ({
+      id: `${spec.id}-${String(index)}`,
+      title: c.title,
+      input: c.input,
+      expectedOutput: spec.solve(c.input),
+      hidden: c.hidden,
+      // Only emit `match` when a non-default mode is specified.
+      ...(spec.match ? { match: spec.match } : {}),
+    })),
+    // Grid/matrix puzzles omit a descriptor; the language template is used.
+    ...(ioFormat ? { ioFormat } : {}),
+  }
+})
 
 const header = `// GENERATED FILE — do not edit by hand.
 // Produced by scripts/generate-puzzles.mjs (npm run puzzles:generate).

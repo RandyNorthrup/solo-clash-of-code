@@ -37,6 +37,8 @@ export const TIMED_DANGER_THRESHOLD_SEC = 15
 /** localStorage namespacing. */
 export const STORAGE_KEY_USER_PUZZLES = 'coding-game:user-puzzles:v1'
 export const STORAGE_KEY_BEST_TIMES = 'coding-game:best-times:v1'
+/** Best (smallest) code size in characters per puzzle — the Shortest mode score. */
+export const STORAGE_KEY_BEST_SIZES = 'coding-game:best-sizes:v1'
 export const STORAGE_KEY_DRAFTS = 'coding-game:drafts:v1'
 export const STORAGE_KEY_OPENAI_API_KEY_CIPHER =
   'coding-game:openai-api-key-cipher:v1'
@@ -56,6 +58,13 @@ export const MIN_TITLE_LENGTH = 3
 /** Number formatting. */
 export const TIME_PAD_LENGTH = 2
 export const TIME_PAD_CHAR = '0'
+
+/** Unit suffixes for the Clash-of-Code style countdown (e.g. "12MN 27SC"). */
+export const CLASH_CLOCK_MINUTE_UNIT = 'MN'
+export const CLASH_CLOCK_SECOND_UNIT = 'SC'
+
+/** Zero-padding width for the 1-based test-case number labels (e.g. "01"). */
+export const CASE_NUMBER_PAD_LENGTH = 2
 
 /** Tolerance for the 'float' output checker (absolute and relative). */
 export const FLOAT_MATCH_EPSILON = 1e-6
@@ -134,5 +143,8 @@ export const AI_PUZZLE_MAX_TESTCASE_IO_CHARS = 600
 export const AI_PUZZLE_MAX_CASE_LINES = 20
 export const AI_PUZZLE_MAX_SAFE_INTEGER_ABS = 1_000_000_000
 export const AI_PUZZLE_MAX_FAILURE_DETAILS = 3
+/** Bounds for the AI-supplied input descriptor (drives the per-language stub). */
+export const AI_PUZZLE_MAX_IO_INSTRUCTIONS = 8
+export const AI_PUZZLE_MAX_IO_VARS_PER_READ = 6
 export const ASCII_PRINTABLE_MIN_CODE = 32
 export const ASCII_PRINTABLE_MAX_CODE = 126

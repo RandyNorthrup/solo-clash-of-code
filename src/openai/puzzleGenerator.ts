@@ -4,6 +4,8 @@ import {
   AI_PUZZLE_MAX_FAILURE_DETAILS,
   AI_PUZZLE_MAX_CASE_LINES,
   AI_PUZZLE_MAX_REFERENCE_SOLUTION_CHARS,
+  AI_PUZZLE_MAX_IO_INSTRUCTIONS,
+  AI_PUZZLE_MAX_IO_VARS_PER_READ,
   AI_PUZZLE_MAX_SAFE_INTEGER_ABS,
   AI_PUZZLE_MAX_TESTCASES,
   AI_PUZZLE_MAX_TESTCASE_IO_CHARS,
@@ -39,6 +41,10 @@ import {
   DIFFICULTIES,
   DIFFICULTY_LABELS,
   type Difficulty,
+  type IoFormat,
+  type IoInstruction,
+  type IoScalarType,
+  type IoVarType,
   type MatchMode,
   type Puzzle,
   type TestCase,
@@ -46,6 +52,7 @@ import {
 import { resolveAvailableLanguages } from '../judge/availability'
 import { fetchJudge0Languages } from '../judge/judge0'
 import { allPassed, gradeAll, type CaseResult } from '../judge/grade'
+import { generateStub } from '../judge/stubgen'
 
 type GeneratedTestCase = Omit<TestCase, 'id'> & {
   readonly match: MatchMode
@@ -64,8 +71,13 @@ interface GeneratedPuzzlePayload {
   readonly inputSpec: string
   readonly outputSpec: string
   readonly testcases: readonly GeneratedTestCase[]
+  readonly ioFormat: IoFormat
   readonly referenceSolutionPython: string
 }
+
+const IO_SCALAR_TYPES: readonly IoScalarType[] = ['int', 'float', 'word']
+const IO_VAR_TYPES: readonly IoVarType[] = ['int', 'float', 'word', 'string']
+const IO_VAR_NAME_PATTERN = /^[a-zA-Z][a-zA-Z0-9]*$/u
 
 interface ResponseOutputText {
   readonly type: string
@@ -101,6 +113,7 @@ const GENERATED_PUZZLE_SCHEMA = {
     'inputSpec',
     'outputSpec',
     'testcases',
+    'ioFormat',
     'referenceSolutionPython',
   ],
   properties: {
@@ -157,6 +170,47 @@ const GENERATED_PUZZLE_SCHEMA = {
           hidden: { type: 'boolean' },
           match: { type: 'string', enum: MATCH_MODES },
         },
+      },
+    },
+    ioFormat: {
+      type: 'array',
+      minItems: 1,
+      maxItems: AI_PUZZLE_MAX_IO_INSTRUCTIONS,
+      items: {
+        anyOf: [
+          {
+            type: 'object',
+            additionalProperties: false,
+            required: ['kind', 'vars'],
+            properties: {
+              kind: { type: 'string', enum: ['read'] },
+              vars: {
+                type: 'array',
+                minItems: 1,
+                maxItems: AI_PUZZLE_MAX_IO_VARS_PER_READ,
+                items: {
+                  type: 'object',
+                  additionalProperties: false,
+                  required: ['name', 'type'],
+                  properties: {
+                    name: { type: 'string' },
+                    type: { type: 'string', enum: IO_VAR_TYPES },
+                  },
+                },
+              },
+            },
+          },
+          {
+            type: 'object',
+            additionalProperties: false,
+            required: ['kind', 'name', 'type'],
+            properties: {
+              kind: { type: 'string', enum: ['list'] },
+              name: { type: 'string' },
+              type: { type: 'string', enum: IO_SCALAR_TYPES },
+            },
+          },
+        ],
       },
     },
     referenceSolutionPython: {
@@ -292,6 +346,45 @@ function isGeneratedTestCase(value: unknown): value is GeneratedTestCase {
   )
 }
 
+function isIoVarType(value: unknown): value is IoVarType {
+  return typeof value === 'string' && IO_VAR_TYPES.includes(value as IoVarType)
+}
+
+function isIoScalarType(value: unknown): value is IoScalarType {
+  return (
+    typeof value === 'string' && IO_SCALAR_TYPES.includes(value as IoScalarType)
+  )
+}
+
+function isIoInstruction(value: unknown): value is IoInstruction {
+  if (!isRecord(value)) {
+    return false
+  }
+  if (value['kind'] === 'read') {
+    const vars = value['vars']
+    return (
+      Array.isArray(vars) &&
+      vars.length > 0 &&
+      vars.every(
+        (entry) =>
+          isRecord(entry) &&
+          typeof entry['name'] === 'string' &&
+          isIoVarType(entry['type']),
+      )
+    )
+  }
+  if (value['kind'] === 'list') {
+    return typeof value['name'] === 'string' && isIoScalarType(value['type'])
+  }
+  return false
+}
+
+function isIoFormat(value: unknown): value is IoFormat {
+  return (
+    Array.isArray(value) && value.length > 0 && value.every(isIoInstruction)
+  )
+}
+
 function extractResponseText(body: OpenAiResponseBody): string {
   if (typeof body.output_text === 'string') {
     return body.output_text
@@ -318,6 +411,9 @@ function parseGeneratedPuzzle(text: string): GeneratedPuzzlePayload {
   if (!Array.isArray(testcases) || !testcases.every(isGeneratedTestCase)) {
     throw new Error('OpenAI returned invalid test cases.')
   }
+  if (!isIoFormat(parsed['ioFormat'])) {
+    throw new Error('OpenAI returned an invalid input descriptor.')
+  }
   if (
     typeof parsed['title'] !== 'string' ||
     !isDifficulty(parsed['difficulty']) ||
@@ -337,6 +433,7 @@ function parseGeneratedPuzzle(text: string): GeneratedPuzzlePayload {
     inputSpec: parsed['inputSpec'],
     outputSpec: parsed['outputSpec'],
     testcases,
+    ioFormat: parsed['ioFormat'],
     referenceSolutionPython: parsed['referenceSolutionPython'],
   }
 }
@@ -494,6 +591,49 @@ function validateReferenceSolution(
   }
 }
 
+function validateIoFormat(
+  payload: GeneratedPuzzlePayload,
+  errors: string[],
+): void {
+  const names = new Set<string>()
+  const check = (name: string): void => {
+    if (!IO_VAR_NAME_PATTERN.test(name)) {
+      errors.push(`Input variable "${name}" is not a simple identifier.`)
+    }
+    if (names.has(name)) {
+      errors.push(`Duplicate input variable "${name}".`)
+    }
+    names.add(name)
+  }
+  for (const instruction of payload.ioFormat) {
+    if (instruction.kind === 'read') {
+      const hasString = instruction.vars.some((v) => v.type === 'string')
+      if (hasString && instruction.vars.length > 1) {
+        errors.push(
+          'A whole-line string variable must be the only variable on its line.',
+        )
+      }
+      for (const variable of instruction.vars) {
+        check(variable.name)
+      }
+    } else {
+      check(instruction.name)
+    }
+  }
+  // The descriptor must consume exactly the lines present in every test input.
+  for (const testCase of payload.testcases) {
+    const lines = lineCount(testCase.input.replace(/\n+$/u, ''))
+    if (lines !== payload.ioFormat.length) {
+      errors.push(
+        `Input descriptor does not match the line count of test "${testCase.title}".`,
+      )
+    }
+  }
+  if (generateStub(payload.ioFormat, 'python3') === null) {
+    errors.push('Input descriptor could not be turned into a stub.')
+  }
+}
+
 export function validateGeneratedPuzzle(
   payload: GeneratedPuzzlePayload,
   requestedDifficulty: Difficulty,
@@ -512,6 +652,7 @@ export function validateGeneratedPuzzle(
   validateSpecShape(payload, errors)
   validateDifficultyFit(payload, requestedDifficulty, errors)
   validateFloatMode(payload, errors)
+  validateIoFormat(payload, errors)
   validateReferenceSolution(payload.referenceSolutionPython, errors)
 
   const visible = payload.testcases.filter((testCase) => !testCase.hidden)
@@ -594,6 +735,10 @@ function buildPuzzlePrompt(
         'Visible samples must teach the rule; hidden validators must cover edge cases not shown by samples.',
         'Use printable ASCII only in all fields, stdin, and stdout.',
         'Input and output specs must explicitly describe Line 1 and any later lines.',
+        'Also return ioFormat: a structured descriptor of stdin used to generate per-language starter stubs. It is an array of instructions read in order, one per input line.',
+        'Each instruction is either {"kind":"read","vars":[{"name","type"}]} for one line of space-separated values, or {"kind":"list","name","type"} for one line collected into a list.',
+        'Variable types are "int", "float", "word" (a single token), or "string" (the whole line; if used it must be the only var on its line). Names must be simple identifiers and unique.',
+        'The number of ioFormat instructions must equal the number of stdin lines in every test case, and the variables must match the input spec exactly.',
         'Constraints must include concrete numeric bounds and length bounds.',
         'Avoid dates, time zones, randomness, files, networking, web APIs, locale rules, Unicode-only behavior, regex requirements, and language-specific libraries.',
         'Keep all integers inside [-1000000000, 1000000000] so C, C++, Java, JavaScript, Python, Ruby, Go, Rust, Swift, PHP, C#, Kotlin, Scala, Haskell, and Bash can solve safely.',
@@ -855,6 +1000,7 @@ async function generateVerifiedAiPuzzle(
     outputSpec: payload.outputSpec.trim(),
     testcases,
     source: 'user',
+    ioFormat: payload.ioFormat,
   }
   const referenceSolution = payload.referenceSolutionPython.trim()
   const canonicalTestcases = await verifyReferenceSolution(

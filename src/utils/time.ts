@@ -38,3 +38,20 @@ export function formatCountdown(remainingMs: number): string {
   const seconds = totalSeconds % SECONDS_PER_MINUTE
   return `${pad(minutes)}:${pad(seconds)}`
 }
+
+/**
+ * Countdown split into padded minute/second parts for the Clash-of-Code style
+ * readout, e.g. `{ minutes: '12', seconds: '27' }` rendered as "12MN 27SC".
+ */
+export function formatClashClock(remainingMs: number): {
+  readonly minutes: string
+  readonly seconds: string
+} {
+  const totalSeconds = Math.max(
+    0,
+    Math.ceil(remainingMs / MILLISECONDS_PER_SECOND),
+  )
+  const minutes = Math.floor(totalSeconds / SECONDS_PER_MINUTE)
+  const seconds = totalSeconds % SECONDS_PER_MINUTE
+  return { minutes: pad(minutes), seconds: pad(seconds) }
+}

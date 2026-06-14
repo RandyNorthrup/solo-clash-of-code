@@ -23,7 +23,17 @@ import { DIFFICULTIES, DIFFICULTY_LABELS, type Puzzle } from '../puzzles/types'
 import { hasOpenAiApiKeyStored, loadOpenAiApiKey } from '../openai/keyStorage'
 import { generateAiPuzzle } from '../openai/puzzleGenerator'
 import { getBestTimeMs } from '../scores/store'
-import { PUZZLE_SHARE_PARAM, ROUTES, solvePath, type PlayMode } from '../routes'
+import {
+  CLASH_MODES,
+  CLASH_MODE_BLURBS,
+  CLASH_MODE_LABELS,
+  DEFAULT_CLASH_MODE,
+  PUZZLE_SHARE_PARAM,
+  ROUTES,
+  solvePath,
+  type ClashMode,
+  type PlayMode,
+} from '../routes'
 import { ui } from '../theme/ui'
 import { formatStopwatch } from '../utils/time'
 
@@ -152,6 +162,7 @@ export function HomePage(): React.JSX.Element {
   const navigate = useNavigate()
   const [selectedDifficulty, setSelectedDifficulty] =
     useState<(typeof DIFFICULTIES)[number]>('beginner')
+  const [clashMode, setClashMode] = useState<ClashMode>(DEFAULT_CLASH_MODE)
   const [mode, setMode] = useState<PlayMode>('practice')
   const [minutes, setMinutes] = useState<number>(DEFAULT_TIMED_MODE_MINUTES)
   const [puzzles, setPuzzles] = useState<readonly Puzzle[]>(getAllPuzzles)
@@ -175,13 +186,9 @@ export function HomePage(): React.JSX.Element {
 
   const openPuzzle = useCallback(
     (puzzle: Puzzle) => {
-      const path =
-        mode === 'timed'
-          ? solvePath(puzzle.id, { mode, minutes })
-          : solvePath(puzzle.id)
-      void navigate(path)
+      void navigate(solvePath(puzzle.id, { clash: clashMode, mode, minutes }))
     },
-    [mode, minutes, navigate],
+    [clashMode, mode, minutes, navigate],
   )
 
   const openQuickPuzzle = useCallback(() => {
@@ -349,43 +356,66 @@ export function HomePage(): React.JSX.Element {
           </div>
 
           <div className={ui.startPanel}>
-            <div className={ui.modeGrid}>
-              <ModeCard
-                active={mode === 'practice'}
-                title="Fastest practice"
-                meta="Stopwatch run. Submit all tests to record a best time."
-                onClick={() => {
-                  setMode('practice')
-                }}
-              />
-              <ModeCard
-                active={mode === 'timed'}
-                title="Beat the Clock"
-                meta="Countdown run. Solves after expiry stay unrecorded."
-                onClick={() => {
-                  setMode('timed')
-                }}
-              />
-            </div>
-
-            {mode === 'timed' && (
-              <div className={ui.minuteRail}>
-                {TIMED_MODE_MINUTE_OPTIONS.map((option) => (
-                  <button
+            <div className={ui.field}>
+              <label className={ui.label}>Clash mode</label>
+              <div className={ui.modeGrid}>
+                {CLASH_MODES.map((option) => (
+                  <ModeCard
                     key={option}
-                    type="button"
-                    className={
-                      minutes === option ? ui.btnPrimary : ui.btnSecondary
-                    }
+                    active={clashMode === option}
+                    title={CLASH_MODE_LABELS[option]}
+                    meta={CLASH_MODE_BLURBS[option]}
                     onClick={() => {
-                      setMinutes(option)
+                      setClashMode(option)
                     }}
-                  >
-                    {`${String(option)} min`}
-                  </button>
+                  />
                 ))}
               </div>
-            )}
+            </div>
+
+            <div className={ui.field}>
+              <label className={ui.label}>Timer</label>
+              <div className={ui.quickActions}>
+                <button
+                  type="button"
+                  className={
+                    mode === 'practice' ? ui.segmentActive : ui.segment
+                  }
+                  onClick={() => {
+                    setMode('practice')
+                  }}
+                >
+                  Practice (stopwatch)
+                </button>
+                <button
+                  type="button"
+                  className={mode === 'timed' ? ui.segmentActive : ui.segment}
+                  onClick={() => {
+                    setMode('timed')
+                  }}
+                >
+                  Beat the Clock
+                </button>
+              </div>
+              {mode === 'timed' && (
+                <div className={ui.minuteRail}>
+                  {TIMED_MODE_MINUTE_OPTIONS.map((option) => (
+                    <button
+                      key={option}
+                      type="button"
+                      className={
+                        minutes === option ? ui.btnPrimary : ui.btnSecondary
+                      }
+                      onClick={() => {
+                        setMinutes(option)
+                      }}
+                    >
+                      {`${String(option)} min`}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
         </div>
 

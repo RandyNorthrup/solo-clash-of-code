@@ -57,7 +57,7 @@ security:audit + tests + build) and `npm run quality:ci` (= `quality` +
 ## Vision
 
 A browser-based, single-player Clash of Code. The player solves short
-stdin/stdout puzzles in any of 15 languages, runs them against test cases in a
+stdin/stdout puzzles in any of 17 languages, runs them against test cases in a
 real sandbox (Judge0), and competes against their own best time or a countdown.
 No accounts, no backend of our own — state lives in the browser; execution lives
 in a local Judge0 container reached through a dev proxy.
@@ -80,8 +80,10 @@ in a local Judge0 container reached through a dev proxy.
   Tailwind v4 + Monaco. Package manager: npm. Verified mutually compatible
   (install clean, build + 47 tests green).
 - **Execution:** self-hosted Judge0 CE 1.13.1 via Docker; dev proxy at `/judge0`.
-- **Languages:** 15 requested; Judge0 CE provides 14 (Zig absent → excluded by
-  the runtime resolver). No code change needed.
+- **Languages:** 17 supported, all present in Judge0 CE 1.13.1 and resolved at
+  runtime: Python 3, JavaScript, TypeScript, C++, C#, Java, Kotlin, Go, Rust,
+  Ruby, Swift, Scala, PHP, Perl, Lua, Bash, OCaml. (Zig was removed — Judge0 CE
+  ships no Zig compiler, so it was unreachable config.)
 - **CI/CD:** GitHub Actions (`.github/workflows/ci.yml`).
 - **Auth / DB:** none (single-player, local).
 - **Browser support:** modern evergreen browsers.
@@ -89,7 +91,6 @@ in a local Judge0 container reached through a dev proxy.
 ## Open questions
 
 - Hosting/deploy target for production (Milestone 10) — not yet chosen.
-- Whether to add Zig via a Judge0 "extra-languages" image.
 - Secret scanning tool (gitleaks) — deferred; no secrets in repo today.
 
 ## Dependency & version verification
@@ -719,36 +720,79 @@ and test-case standards as the built-in bank before open/favorite.
 
 ---
 
+## Clash Parity Slice — reskin, three modes & transposer ✅
+
+**Goal:** make the app look and play like CodinGame Clash of Code (per the
+reference screenshot), add the signature modes, and give every puzzle a
+per-language starter stub.
+
+Codable actions:
+
+- ✅ **Reskin** to the CoC neutral-dark palette in `src/theme/ui.ts` /
+  `src/index.css`; jester brand (`JesterMark`) + "Clash of Code" wordmark;
+  contributor hero header, variable **chips** (`SpecText`), clock-icon
+  `12MN 27SC` countdown (`formatClashClock` / `ClashClock`), numbered test rows
+  with per-case **Play** buttons, CODE SIZE meter.
+- ✅ **Three clash modes** `fastest | shortest | reverse` (`ClashMode` in
+  `routes.ts`), orthogonal to the kept `practice` / `timed` solo timers. Shortest
+  scores by code size (`recordSizeChars` / `getBestSizeChars`); Reverse hides the
+  statement until solved. Lobby gains a clash-mode selector.
+- ✅ **Transposer** `src/judge/stubgen.ts`: deterministic per-language stub
+  generation from a structured `ioFormat` descriptor (`src/puzzles/types.ts`),
+  for all 17 languages. Built-ins get descriptors + chip markup
+  (`generate-puzzles.mjs`); the AI generator emits + validates `ioFormat`.
+- ✅ **Languages 14 → 17:** removed Zig (unreachable in Judge0 CE), added Java,
+  Kotlin, Bash; fixed the TypeScript `require` compile bug.
+
+**Certification:**
+
+- ✅ `npm run quality` exit 0: typecheck · lint · format · deadcode · audit ·
+  **121 tests** · build.
+- ✅ `npm run test:coverage` exit 0: 97.17% · 91.4% · 98.73% · 98.26%.
+- ✅ `npm run lighthouse` exit 0: Performance 99 · Accessibility 100 ·
+  Best-Practices 100.
+- ✅ Live: `npm run verify:judge0` 5/5 Accepted; `npm run test:e2e` solved Echo
+  and Circle Area; the live transposer test (`stubgen.live.test.ts`) compiled and
+  ran the generated stub for **all 17 languages** across 3 sample puzzles.
+- ✅ Visual: `npm run screenshots` reviewed against the reference — Home (clash
+  modes + jester lobby) and Solve (hero header, chips, stub, test rows, actions)
+  match.
+
+**Status: ✅ certified.**
+
+---
+
 ## Current certification ledger
 
-| Milestone             | Built | Auto-tested | Certified | Notes                        |
-| --------------------- | ----- | ----------- | --------- | ---------------------------- |
-| T Harness             | ✅    | ✅          | ✅        | test + scan + visual arms    |
-| M0 Tooling            | ✅    | ✅          | ✅        | —                            |
-| M1 Execution          | ✅    | ✅          | ✅        | 5/5 Accepted live            |
-| M2 Puzzles/persist    | ✅    | ✅          | ✅        | —                            |
-| M3 Modes/UI           | ✅    | ✅          | ✅        | live solve, best recorded    |
-| M4 Authoring          | ✅    | ✅          | ✅        | shares the proven solve path |
-| M5 Fidelity/UX        | ✅    | ✅          | ✅        | float solved live (test:e2e) |
-| M6 Parallel/resilient | ✅    | ✅          | ✅        | retry + abort; 50 tests      |
-| M7 Stats/History      | ✅    | ✅          | ✅        | 68 tests, history aggregates |
-| M8 Content & sharing  | ✅    | ✅          | ✅        | 51 puzzles, io.ts, share URL |
-| M9 CI                 | ✅    | ✅          | ✅        | coverage gate; CI workflow   |
-| M10 Deployment        | ✅    | ✅          | ✅        | env-var Judge0 URL, README   |
-| Polish 1 Cockpit UI   | ✅    | ✅          | ✅        | quality + live + visual      |
-| Maintenance 1 Audit   | ✅    | ✅          | ✅        | full npm audit = 0 vulns     |
-| Puzzle QA 1 Bank      | ✅    | ✅          | ✅        | 164 cases, tier audit        |
-| Optional AI 1         | ✅    | ✅          | ✅        | full standard + AI e2e       |
+| Milestone             | Built | Auto-tested | Certified | Notes                         |
+| --------------------- | ----- | ----------- | --------- | ----------------------------- |
+| T Harness             | ✅    | ✅          | ✅        | test + scan + visual arms     |
+| M0 Tooling            | ✅    | ✅          | ✅        | —                             |
+| M1 Execution          | ✅    | ✅          | ✅        | 5/5 Accepted live             |
+| M2 Puzzles/persist    | ✅    | ✅          | ✅        | —                             |
+| M3 Modes/UI           | ✅    | ✅          | ✅        | live solve, best recorded     |
+| M4 Authoring          | ✅    | ✅          | ✅        | shares the proven solve path  |
+| M5 Fidelity/UX        | ✅    | ✅          | ✅        | float solved live (test:e2e)  |
+| M6 Parallel/resilient | ✅    | ✅          | ✅        | retry + abort; 50 tests       |
+| M7 Stats/History      | ✅    | ✅          | ✅        | 68 tests, history aggregates  |
+| M8 Content & sharing  | ✅    | ✅          | ✅        | 51 puzzles, io.ts, share URL  |
+| M9 CI                 | ✅    | ✅          | ✅        | coverage gate; CI workflow    |
+| M10 Deployment        | ✅    | ✅          | ✅        | env-var Judge0 URL, README    |
+| Polish 1 Cockpit UI   | ✅    | ✅          | ✅        | quality + live + visual       |
+| Maintenance 1 Audit   | ✅    | ✅          | ✅        | full npm audit = 0 vulns      |
+| Puzzle QA 1 Bank      | ✅    | ✅          | ✅        | 164 cases, tier audit         |
+| Optional AI 1         | ✅    | ✅          | ✅        | full standard + AI e2e        |
+| Clash Parity          | ✅    | ✅          | ✅        | reskin + 3 modes + transposer |
 
 **All milestones and completed slices are certified.** Latest full gate:
 `npm run quality` green (typecheck + strict lint + format + deadcode +
-security:audit + **96 tests** + build). `npm audit` green with **0
-vulnerabilities**. Coverage gate green: 97.08% / 91.26% / 98.66% / 98.2%.
-Lighthouse: Perf 90 · A11y 100 · Best-Practices 100 (SEO excluded). Live
+security:audit + **121 tests** + build). `npm audit` green with **0
+vulnerabilities**. Coverage gate green: 97.17% / 91.4% / 98.73% / 98.26%.
+Lighthouse: Perf 99 · A11y 100 · Best-Practices 100 (SEO excluded). Live
 execution verified: `npm run verify:judge0` 5/5 Accepted; `npm run test:e2e`
-solved Echo (trimmed) and Circle Area (float) end-to-end against Judge0;
-`npm run test:e2e:full` solved 20 total puzzles, including 10 AI-generated
-puzzles that were favorited with saved names.
+solved Echo (trimmed) and Circle Area (float) end-to-end against Judge0; the
+live transposer test compiled and ran generated stubs for all 17 languages.
+17 languages supported (Zig removed; Java, Kotlin, Bash added).
 
 **Next slice:** optional AI Slice 2 should be all-language generated-puzzle
 certification as a separate nightly/manual gate: sample saved AI puzzles, run
@@ -756,10 +800,9 @@ language-specific reference solutions or generated/verifier-backed solutions
 across every supported Judge0 language, and record failures without slowing
 normal quick play.
 
-**Deferred gameplay slice:** true Clash format depth remains after AI
-certification: Reverse mode should hide the statement and expose sample
-input/output for deduction; Shortest mode should score successful submissions
-by character count and keep local best code size.
+**Clash format depth — done** (see Clash Parity Slice): Reverse hides the
+statement and exposes sample input/output for deduction; Shortest scores
+successful submissions by character count and keeps a local best code size.
 
 ---
 

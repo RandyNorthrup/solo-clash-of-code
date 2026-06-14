@@ -1,5 +1,6 @@
 /** App shell: top navigation bar and routed page content. */
 import { NavLink, Outlet } from 'react-router-dom'
+import { JesterMark } from './JesterMark'
 import { ROUTES } from '../routes'
 import { ui } from '../theme/ui'
 
@@ -12,8 +13,8 @@ export function Layout(): React.JSX.Element {
     <div className={ui.appShell}>
       <header className={ui.header}>
         <NavLink to={ROUTES.home} className={ui.brand}>
-          <span className={ui.brandMark}>{'</>'}</span>
-          <span>Solo Clash</span>
+          <JesterMark />
+          <span className={ui.brandWord}>Clash of Code</span>
         </NavLink>
         <nav className={ui.nav}>
           <NavLink to={ROUTES.home} className={navClass} end>

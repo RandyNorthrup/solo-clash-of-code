@@ -40,7 +40,7 @@ export const LANGUAGES: readonly LanguageDef[] = [
     monacoId: 'typescript',
     judge0NamePattern: /typescript/i,
     template:
-      "const lines: string[] = require('fs').readFileSync(0, 'utf8').split('\\n')\nconsole.log(lines[0])\n",
+      "declare function require(id: string): { readFileSync(fd: number, enc: string): string }\nconst lines: string[] = require('fs').readFileSync(0, 'utf8').split('\\n')\nconsole.log(lines[0])\n",
   },
   {
     key: 'cpp',
@@ -57,6 +57,22 @@ export const LANGUAGES: readonly LanguageDef[] = [
     judge0NamePattern: /c#|mono/i,
     template:
       'using System;\n\nclass Solution {\n    static void Main() {\n        string line = Console.ReadLine();\n        Console.WriteLine(line);\n    }\n}\n',
+  },
+  {
+    key: 'java',
+    label: 'Java',
+    monacoId: 'java',
+    // "Java (OpenJDK 13.0.1)" — guard against matching "JavaScript (...)".
+    judge0NamePattern: /^java\s*\(/i,
+    template:
+      'import java.util.*;\nimport java.io.*;\n\npublic class Main {\n    public static void main(String[] args) throws IOException {\n        BufferedReader br = new BufferedReader(new InputStreamReader(System.in));\n        String line = br.readLine();\n        System.out.println(line);\n    }\n}\n',
+  },
+  {
+    key: 'kotlin',
+    label: 'Kotlin',
+    monacoId: 'kotlin',
+    judge0NamePattern: /^kotlin/i,
+    template: 'fun main() {\n    val line = readLine()\n    println(line)\n}\n',
   },
   {
     key: 'go',
@@ -118,19 +134,18 @@ export const LANGUAGES: readonly LanguageDef[] = [
     template: 'local line = io.read("*l")\nprint(line)\n',
   },
   {
+    key: 'bash',
+    label: 'Bash',
+    monacoId: 'shell',
+    judge0NamePattern: /^bash/i,
+    template: 'read line\necho "$line"\n',
+  },
+  {
     key: 'ocaml',
     label: 'OCaml',
     monacoId: MONACO_PLAINTEXT,
     judge0NamePattern: /^ocaml/i,
     template: 'let () =\n  let line = read_line () in\n  print_endline line\n',
-  },
-  {
-    key: 'zig',
-    label: 'Zig',
-    monacoId: MONACO_PLAINTEXT,
-    judge0NamePattern: /^zig/i,
-    template:
-      'const std = @import("std");\n\npub fn main() !void {\n    const stdin = std.io.getStdIn().reader();\n    const stdout = std.io.getStdOut().writer();\n    var buf: [4096]u8 = undefined;\n    if (try stdin.readUntilDelimiterOrEof(&buf, \'\\n\')) |line| {\n        try stdout.print("{s}\\n", .{line});\n    }\n}\n',
   },
 ] as const
 

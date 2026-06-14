@@ -1,4 +1,9 @@
-/** Renders the per-test-case run status (pass / fail / error kind / running). */
+/**
+ * Clash-of-Code style test-case list: numbered rows with a status and a
+ * per-case PLAY button. Visible cases can be played individually; hidden cases
+ * are listed (and run on submit) but not playable up front.
+ */
+import { CASE_NUMBER_PAD_LENGTH, TIME_PAD_CHAR } from '../config/constants'
 import {
   ERROR_KIND_LABELS,
   type CaseResult,
@@ -17,6 +22,7 @@ const STATUS_IDLE = '—'
 const STATUS_RUNNING = 'Running…'
 const STATUS_PASSED = 'Passed'
 const STATUS_FAILED = 'Failed'
+const PLAY_GLYPH = '▶'
 
 const ERROR_STATUS_CLASS: Record<ErrorKind, string> = {
   compile: ui.testStatusFail,
@@ -64,24 +70,45 @@ interface TestCaseListProps {
   readonly testcases: readonly TestCase[]
   readonly results: Record<string, CaseResult>
   readonly pending: ReadonlySet<string>
+  readonly onPlay: (testCaseId: string) => void
+  readonly busy: boolean
 }
 
 export function TestCaseList({
   testcases,
   results,
   pending,
+  onPlay,
+  busy,
 }: TestCaseListProps): React.JSX.Element {
   return (
     <div className={ui.testListCompact}>
-      {testcases.map((testCase) => {
+      {testcases.map((testCase, index) => {
         const style = rowStyle(results[testCase.id], pending.has(testCase.id))
+        const number = String(index + 1).padStart(
+          CASE_NUMBER_PAD_LENGTH,
+          TIME_PAD_CHAR,
+        )
         return (
-          <div key={testCase.id} className={`${ui.testRow} ${style.row}`}>
-            <span>
+          <div key={testCase.id} className={`${ui.testPlayRow} ${style.row}`}>
+            <span className={ui.testNum}>{number}</span>
+            <span className={ui.testTitle}>
               {testCase.title}
               {testCase.hidden && <span className={ui.tag}> hidden</span>}
             </span>
             <span className={style.status}>{style.label}</span>
+            {!testCase.hidden && (
+              <button
+                type="button"
+                className={ui.testPlayBtn}
+                disabled={busy}
+                onClick={() => {
+                  onPlay(testCase.id)
+                }}
+              >
+                {PLAY_GLYPH} Play
+              </button>
+            )}
           </div>
         )
       })}

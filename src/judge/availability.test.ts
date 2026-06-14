@@ -10,6 +10,9 @@ const JUDGE0_NAMES: Record<string, string> = {
   typescript: 'TypeScript (3.7.4)',
   cpp: 'C++ (GCC 9.2.0)',
   csharp: 'C# (Mono 6.6.0.161)',
+  java: 'Java (OpenJDK 13.0.1)',
+  kotlin: 'Kotlin (1.3.70)',
+  bash: 'Bash (5.0.0)',
   go: 'Go (1.13.5)',
   rust: 'Rust (1.40.0)',
   ruby: 'Ruby (2.7.0)',
@@ -19,7 +22,6 @@ const JUDGE0_NAMES: Record<string, string> = {
   perl: 'Perl (5.28.1)',
   lua: 'Lua (5.3.5)',
   ocaml: 'OCaml (4.09.0)',
-  zig: 'Zig (0.10.1)',
 }
 
 function buildJudge0List(): Judge0Language[] {
@@ -46,11 +48,13 @@ describe('resolveAvailableLanguages', () => {
   })
 
   it('excludes languages the instance does not provide', () => {
-    const withoutZig = buildJudge0List().filter(
-      (lang) => !/zig/i.test(lang.name),
+    const withoutOcaml = buildJudge0List().filter(
+      (lang) => !/ocaml/i.test(lang.name),
     )
-    const resolved = resolveAvailableLanguages(withoutZig)
-    expect(resolved.some((entry) => entry.def.key === 'zig')).toBe(false)
+    const resolved = resolveAvailableLanguages(withoutOcaml)
+    expect(resolved.some((entry) => entry.def.key === 'ocaml')).toBe(false)
+    // Every other configured language still resolves.
+    expect(resolved).toHaveLength(LANGUAGES.length - 1)
   })
 
   it('matches Python 3 but not Python 2', () => {

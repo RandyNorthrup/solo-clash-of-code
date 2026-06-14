@@ -1,12 +1,13 @@
 /** The core solving experience: statement, editor, runner, timer, scoring. */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useParams, useSearchParams } from 'react-router-dom'
-import { Clock, type ClockTone } from '../components/Clock'
+import { ClashClock, Clock, type ClockTone } from '../components/Clock'
 import { CodeEditor } from '../components/CodeEditor'
 import { Console } from '../components/Console'
 import { DifficultyBadge } from '../components/DifficultyBadge'
 import { Panel } from '../components/Panel'
 import { Sparkline } from '../components/Sparkline'
+import { SpecText } from '../components/SpecText'
 import { TestCaseList } from '../components/TestCaseList'
 import {
   DEFAULT_TIMED_MODE_MINUTES,
@@ -20,6 +21,7 @@ import { useStopwatch } from '../hooks/useStopwatch'
 import type { AvailableLanguage } from '../judge/availability'
 import { allPassed, gradeAll, type CaseResult } from '../judge/grade'
 import { findLanguageByKey } from '../judge/languages'
+import { generateStub } from '../judge/stubgen'
 import { useLanguages } from '../judge/useLanguages'
 import {
   deleteTempPuzzle,
@@ -27,21 +29,33 @@ import {
   isTempPuzzle,
   saveUserPuzzle,
 } from '../puzzles/store'
-import type { Puzzle } from '../puzzles/types'
+import type { Puzzle, TestCase } from '../puzzles/types'
 import { appendSolve, getRecentTimesForPuzzle } from '../scores/history'
-import { recordTimeMs } from '../scores/store'
-import { PARAM_PUZZLE_ID, QUERY_MINUTES, QUERY_MODE, ROUTES } from '../routes'
+import {
+  getBestSizeChars,
+  recordSizeChars,
+  recordTimeMs,
+} from '../scores/store'
+import {
+  CLASH_MODE_LABELS,
+  DEFAULT_CLASH_MODE,
+  PARAM_PUZZLE_ID,
+  QUERY_CLASH,
+  QUERY_MINUTES,
+  QUERY_MODE,
+  ROUTES,
+  type ClashMode,
+} from '../routes'
 import { ui } from '../theme/ui'
-import { formatCountdown, formatStopwatch, minutesToMs } from '../utils/time'
+import { formatClashClock, formatStopwatch, minutesToMs } from '../utils/time'
 
 // Intentional default grammar for languages Monaco has no highlighter for
-// (e.g. OCaml, Zig). Not an error fallback — the language still executes.
+// (e.g. OCaml). Not an error fallback — the language still executes.
 const MONACO_DEFAULT_GRAMMAR = 'plaintext'
 const TIMED_DANGER_MS = TIMED_DANGER_THRESHOLD_SEC * MILLISECONDS_PER_SECOND
 const TIMED_WARNING_MS = TIMED_WARNING_THRESHOLD_SEC * MILLISECONDS_PER_SECOND
 const NO_TIME_REMAINING = 0
 
-type RunScope = 'visible' | 'all'
 type BannerKind = 'success' | 'error' | 'info'
 interface Banner {
   readonly kind: BannerKind
@@ -61,6 +75,13 @@ function readMinutes(value: string | null): number {
     : DEFAULT_TIMED_MODE_MINUTES
 }
 
+function readClashMode(value: string | null): ClashMode {
+  if (value === 'shortest' || value === 'reverse' || value === 'fastest') {
+    return value
+  }
+  return DEFAULT_CLASH_MODE
+}
+
 function countdownTone(remainingMs: number): ClockTone {
   if (remainingMs <= TIMED_DANGER_MS) {
     return 'danger'
@@ -71,9 +92,18 @@ function countdownTone(remainingMs: number): ClockTone {
   return 'normal'
 }
 
-function initialCode(puzzleId: string, languageKey: string): string {
-  const def = findLanguageByKey(languageKey)
-  return getDraft(puzzleId, languageKey) ?? def?.template ?? ''
+/** Starter code: saved draft → generated per-language stub → generic template. */
+function initialCode(puzzle: Puzzle, languageKey: string): string {
+  const draft = getDraft(puzzle.id, languageKey)
+  const stub = generateStub(puzzle.ioFormat, languageKey)
+  return draft ?? stub ?? findLanguageByKey(languageKey)?.template ?? ''
+}
+
+function puzzleOrigin(puzzle: Puzzle): string {
+  if (isTempPuzzle(puzzle.id)) {
+    return 'AI-generated clash'
+  }
+  return puzzle.source === 'user' ? 'Your custom clash' : 'Built-in clash'
 }
 
 /**
@@ -89,6 +119,7 @@ function SolveWorkspace({
   languages,
   loading,
   langError,
+  clashMode,
   isTimed,
   timeUp,
   getElapsedMs,
@@ -102,17 +133,19 @@ function SolveWorkspace({
   readonly languages: readonly AvailableLanguage[]
   readonly loading: boolean
   readonly langError: string | null
+  readonly clashMode: ClashMode
   readonly isTimed: boolean
   readonly timeUp: boolean
   readonly getElapsedMs: () => number
   readonly stopTimer: () => void
   readonly onSelectLanguage: (key: string) => void
 }): React.JSX.Element {
-  const [code, setCode] = useState(() => initialCode(puzzle.id, languageKey))
+  const [code, setCode] = useState(() => initialCode(puzzle, languageKey))
   const [results, setResults] = useState<Record<string, CaseResult>>({})
   const [pending, setPending] = useState<ReadonlySet<string>>(new Set())
   const [busy, setBusy] = useState(false)
   const [banner, setBanner] = useState<Banner | null>(null)
+  const [solved, setSolved] = useState(false)
   const [isFavoriteDialogOpen, setIsFavoriteDialogOpen] = useState(false)
   const [favoriteName, setFavoriteName] = useState(puzzle.title)
   const [favoriteSaved, setFavoriteSaved] = useState(
@@ -121,13 +154,15 @@ function SolveWorkspace({
   const [recentTimes, setRecentTimes] = useState<readonly number[]>(() =>
     getRecentTimesForPuzzle(puzzle.id),
   )
-  const visibleCaseCount = puzzle.testcases.filter(
-    (testCase) => !testCase.hidden,
-  ).length
-  const hiddenCaseCount = puzzle.testcases.length - visibleCaseCount
+  const visibleCases = puzzle.testcases.filter((testCase) => !testCase.hidden)
+  const hiddenCaseCount = puzzle.testcases.length - visibleCases.length
   const selectedLanguageLabel =
     languages.find((lang) => lang.def.key === languageKey)?.def.label ??
     languageKey
+  const isReverse = clashMode === 'reverse'
+  const isShortest = clashMode === 'shortest'
+  const statementHidden = isReverse && !solved
+  const bestSize = getBestSizeChars(puzzle.id)
 
   // Abort any in-flight batch when the workspace unmounts (e.g. user navigates away).
   const runControllerRef = useRef<AbortController | null>(null)
@@ -146,22 +181,53 @@ function SolveWorkspace({
   )
 
   const resetCode = useCallback(() => {
-    const template = findLanguageByKey(languageKey)?.template ?? ''
+    const template =
+      generateStub(puzzle.ioFormat, languageKey) ??
+      findLanguageByKey(languageKey)?.template ??
+      ''
     setCode(template)
     saveDraft(puzzle.id, languageKey, template)
-  }, [puzzle.id, languageKey])
+  }, [puzzle.id, puzzle.ioFormat, languageKey])
 
-  const run = useCallback(
-    async (scope: RunScope) => {
-      if (judge0Id === undefined || busy) {
+  const recordSuccess = useCallback(
+    (finalMs: number) => {
+      appendSolve({
+        puzzleId: puzzle.id,
+        ms: finalMs,
+        lang: languageKey,
+        at: Date.now(),
+      })
+      setRecentTimes(getRecentTimesForPuzzle(puzzle.id))
+      setSolved(true)
+      if (isShortest) {
+        const size = code.length
+        const { bestChars, improved } = recordSizeChars(puzzle.id, size)
+        setBanner({
+          kind: 'success',
+          text: improved
+            ? `Solved — ${String(size)} chars, new shortest!`
+            : `Solved — ${String(size)} chars. Shortest: ${String(bestChars)}`,
+        })
+        return
+      }
+      const { bestMs, improved } = recordTimeMs(puzzle.id, finalMs)
+      setBanner({
+        kind: 'success',
+        text: improved
+          ? `Solved in ${formatStopwatch(finalMs)} — new best time!`
+          : `Solved in ${formatStopwatch(finalMs)}. Best: ${formatStopwatch(bestMs)}`,
+      })
+    },
+    [puzzle.id, languageKey, isShortest, code.length],
+  )
+
+  const runCases = useCallback(
+    async (cases: readonly TestCase[], scoring: boolean) => {
+      if (judge0Id === undefined || busy || cases.length === 0) {
         return
       }
       const controller = new AbortController()
       runControllerRef.current = controller
-      const cases =
-        scope === 'all'
-          ? puzzle.testcases
-          : puzzle.testcases.filter((testCase) => !testCase.hidden)
       setBusy(true)
       setBanner(null)
       setResults({})
@@ -181,7 +247,7 @@ function SolveWorkspace({
           },
           controller.signal,
         )
-        if (scope !== 'all') {
+        if (!scoring) {
           return
         }
         if (!allPassed(finished)) {
@@ -196,24 +262,12 @@ function SolveWorkspace({
         if (isTimed && timeUp) {
           setBanner({
             kind: 'info',
-            text: 'Solved, but the clock ran out — not recorded as a best time.',
+            text: 'Solved, but the clock ran out — not recorded as a best score.',
           })
+          setSolved(true)
           return
         }
-        const { bestMs, improved } = recordTimeMs(puzzle.id, finalMs)
-        appendSolve({
-          puzzleId: puzzle.id,
-          ms: finalMs,
-          lang: languageKey,
-          at: Date.now(),
-        })
-        setRecentTimes(getRecentTimesForPuzzle(puzzle.id))
-        setBanner({
-          kind: 'success',
-          text: improved
-            ? `Solved in ${formatStopwatch(finalMs)} — new best time!`
-            : `Solved in ${formatStopwatch(finalMs)}. Best: ${formatStopwatch(bestMs)}`,
-        })
+        recordSuccess(finalMs)
       } catch (cause: unknown) {
         if (cause instanceof DOMException && cause.name === 'AbortError') {
           return
@@ -230,15 +284,31 @@ function SolveWorkspace({
     [
       judge0Id,
       busy,
-      puzzle.testcases,
-      puzzle.id,
       code,
-      languageKey,
       getElapsedMs,
       stopTimer,
       isTimed,
       timeUp,
+      recordSuccess,
     ],
+  )
+
+  const runVisible = useCallback(() => {
+    void runCases(visibleCases, false)
+  }, [runCases, visibleCases])
+
+  const submit = useCallback(() => {
+    void runCases(puzzle.testcases, true)
+  }, [runCases, puzzle.testcases])
+
+  const playCase = useCallback(
+    (testCaseId: string) => {
+      const single = puzzle.testcases.filter(
+        (testCase) => testCase.id === testCaseId,
+      )
+      void runCases(single, false)
+    },
+    [runCases, puzzle.testcases],
   )
 
   // Ctrl/Cmd+Enter runs the visible sample cases.
@@ -246,14 +316,14 @@ function SolveWorkspace({
     function onKeyDown(event: KeyboardEvent): void {
       if ((event.metaKey || event.ctrlKey) && event.key === 'Enter') {
         event.preventDefault()
-        void run('visible')
+        runVisible()
       }
     }
     window.addEventListener('keydown', onKeyDown)
     return () => {
       window.removeEventListener('keydown', onKeyDown)
     }
-  }, [run])
+  }, [runVisible])
 
   // First failing *visible* case, surfaced in the console panel.
   let failure: { readonly result: CaseResult; readonly title: string } | null =
@@ -273,7 +343,7 @@ function SolveWorkspace({
       : null)
   const playerStatus = busy
     ? 'Running'
-    : banner?.kind === 'success'
+    : solved
       ? 'Solved'
       : timeUp
         ? 'Time up'
@@ -395,21 +465,61 @@ function SolveWorkspace({
       )}
 
       <div className={ui.solveWorkbench}>
-        <Panel title="Goal">
+        <Panel>
           <div className={ui.statement}>
-            <p className={ui.statementText}>{puzzle.statement}</p>
-            <div className={ui.statementBlock}>
-              <span className={ui.statementHeading}>Input</span>
-              <p className={ui.statementText}>{puzzle.inputSpec}</p>
+            <div className={ui.heroHeader}>
+              <span className={ui.heroAvatar}>★</span>
+              <div className={ui.heroTitleBlock}>
+                <span className={ui.heroTitle}>{puzzle.title}</span>
+                <span className={ui.heroMeta}>{puzzleOrigin(puzzle)}</span>
+              </div>
             </div>
+
+            {statementHidden ? (
+              <p className={ui.reverseHint}>
+                Reverse mode — the statement is hidden. Study the example inputs
+                and outputs below, deduce the rule, and submit. The full
+                statement is revealed once you solve it.
+              </p>
+            ) : (
+              <>
+                <div className={ui.statementBlock}>
+                  <span className={ui.statementHeading}>Goal</span>
+                  <SpecText text={puzzle.statement} />
+                </div>
+                <div className={ui.statementBlock}>
+                  <span className={ui.statementHeading}>Input</span>
+                  <SpecText text={puzzle.inputSpec} />
+                </div>
+                <div className={ui.statementBlock}>
+                  <span className={ui.statementHeading}>Output</span>
+                  <SpecText text={puzzle.outputSpec} />
+                </div>
+                <div className={ui.statementBlock}>
+                  <span className={ui.statementHeading}>Constraints</span>
+                  <SpecText text={puzzle.constraints} />
+                </div>
+              </>
+            )}
+
             <div className={ui.statementBlock}>
-              <span className={ui.statementHeading}>Output</span>
-              <p className={ui.statementText}>{puzzle.outputSpec}</p>
+              <span className={ui.statementHeading}>Example</span>
+              {visibleCases.map((testCase) => (
+                <div key={testCase.id} className={ui.exampleGrid}>
+                  <div className={ui.exampleCol}>
+                    <span className={ui.exampleLabel}>Input</span>
+                    <pre className={ui.examplePre}>{testCase.input}</pre>
+                  </div>
+                  <div className={ui.exampleCol}>
+                    <span className={ui.exampleLabel}>Output</span>
+                    <pre className={ui.examplePre}>
+                      {testCase.expectedOutput}
+                    </pre>
+                  </div>
+                </div>
+              ))}
             </div>
-            <div className={ui.statementBlock}>
-              <span className={ui.statementHeading}>Constraints</span>
-              <p className={ui.statementText}>{puzzle.constraints}</p>
-            </div>
+
             <Sparkline times={recentTimes} />
           </div>
         </Panel>
@@ -456,6 +566,8 @@ function SolveWorkspace({
             testcases={puzzle.testcases}
             results={results}
             pending={pending}
+            onPlay={playCase}
+            busy={busy}
           />
         </Panel>
 
@@ -472,13 +584,23 @@ function SolveWorkspace({
               <div className={ui.playerStatus}>{playerStatus}</div>
             </div>
 
+            {isShortest && (
+              <div className={ui.codeSizeBox}>
+                <span className={ui.codeSizeLabel}>Code size</span>
+                <span className={ui.codeSizeValue}>
+                  {code.length}
+                  {bestSize !== null && ` (best ${String(bestSize)})`}
+                </span>
+              </div>
+            )}
+
             <div className={ui.metricGrid}>
               <div className={ui.metricBox}>
                 <div className={ui.metricValue}>{code.length}</div>
                 <div className={ui.metricLabel}>chars</div>
               </div>
               <div className={ui.metricBox}>
-                <div className={ui.metricValue}>{visibleCaseCount}</div>
+                <div className={ui.metricValue}>{visibleCases.length}</div>
                 <div className={ui.metricLabel}>sample</div>
               </div>
               <div className={ui.metricBox}>
@@ -510,20 +632,16 @@ function SolveWorkspace({
                 type="button"
                 className={ui.btnSecondary}
                 disabled={busy || judge0Id === undefined}
-                onClick={() => {
-                  void run('visible')
-                }}
-                title="Run sample cases (Ctrl/Cmd+Enter)"
+                onClick={runVisible}
+                title="Play all sample cases (Ctrl/Cmd+Enter)"
               >
-                Run
+                Play testcases
               </button>
               <button
                 type="button"
                 className={ui.btnPrimary}
                 disabled={busy || judge0Id === undefined}
-                onClick={() => {
-                  void run('all')
-                }}
+                onClick={submit}
               >
                 Submit
               </button>
@@ -541,6 +659,7 @@ export function SolvePage(): React.JSX.Element {
   const puzzle = useMemo(() => getPuzzleById(puzzleId), [puzzleId])
   const [searchParams] = useSearchParams()
   const isTimed = searchParams.get(QUERY_MODE) === 'timed'
+  const clashMode = readClashMode(searchParams.get(QUERY_CLASH))
   const limitMs = minutesToMs(readMinutes(searchParams.get(QUERY_MINUTES)))
 
   const { languages, loading, error } = useLanguages()
@@ -574,25 +693,26 @@ export function SolvePage(): React.JSX.Element {
 
   const remainingMs = limitMs - elapsedMs
   const timeUp = isTimed && remainingMs <= NO_TIME_REMAINING
+  const clashClock = formatClashClock(remainingMs)
 
   return (
     <div className={ui.page}>
       <div className={ui.solveHeader}>
         <div className={ui.solveTitleCluster}>
           <Link to={ROUTES.home} className={ui.btnGhost}>
-            ← Puzzles
+            ← Lobby
           </Link>
           <DifficultyBadge difficulty={puzzle.difficulty} />
-          <h1 className={ui.pageTitle}>{puzzle.title}</h1>
+          <span className={ui.solveModeLabel}>
+            Clash of Code — {CLASH_MODE_LABELS[clashMode]}
+          </span>
         </div>
         <div className={ui.solveMetaRail}>
-          <span className={ui.tag}>
-            {isTimed ? 'Beat the Clock' : 'Fastest practice'}
-          </span>
           {isTimed ? (
-            <Clock
+            <ClashClock
               label="Time left"
-              display={formatCountdown(remainingMs)}
+              minutes={clashClock.minutes}
+              seconds={clashClock.seconds}
               tone={countdownTone(remainingMs)}
             />
           ) : (
@@ -606,7 +726,7 @@ export function SolvePage(): React.JSX.Element {
       </div>
 
       <SolveWorkspace
-        key={`${puzzleId}:${effectiveKey}`}
+        key={`${puzzleId}:${effectiveKey}:${clashMode}`}
         puzzle={puzzle}
         languageKey={effectiveKey}
         monacoId={monacoId}
@@ -614,6 +734,7 @@ export function SolvePage(): React.JSX.Element {
         languages={languages}
         loading={loading}
         langError={error}
+        clashMode={clashMode}
         isTimed={isTimed}
         timeUp={timeUp}
         getElapsedMs={getElapsedMs}

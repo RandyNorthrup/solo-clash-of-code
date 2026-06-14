@@ -2,9 +2,10 @@
 
 A single-player take on [Clash of Code](https://www.codingame.com/multiplayer/clashofcode):
 instead of racing other people, you race **yourself**. Solve short programming
-puzzles, beat your own best time, or play **Beat the Clock** mode against a
-countdown. Write solutions in any of 15 languages, run them live, and see your
-output graded against test cases — all in the browser.
+puzzles in the three classic clash modes — **Fastest**, **Shortest**, and
+**Reverse** — against a stopwatch or a countdown. Write solutions in any of 17
+languages, run them live, and see your output graded against test cases — all in
+the browser.
 
 > Purpose: sharpen problem-solving speed, practice interview-style questions,
 > and learn by iterating quickly.
@@ -13,16 +14,25 @@ output graded against test cases — all in the browser.
 
 ## Features
 
-- **Two play modes**
-  - **Practice** — a stopwatch counts up; finishing records your best time per
-    puzzle ("beat your best").
+- **Three clash modes** (the CodinGame set), each scored differently:
+  - **Fastest** — pass every test; your completion time is the score.
+  - **Shortest** — code golf: pass every test, then your code size (characters)
+    is the score, shown live as a CODE SIZE meter.
+  - **Reverse** — the statement is hidden; deduce the rule from the example
+    cases, solve, and the full statement is revealed.
+- **Two solo timers**, orthogonal to the mode:
+  - **Practice** — a stopwatch counts up.
   - **Beat the Clock** — a countdown (5 / 10 / 15 / 30 min) you try to solve
-    within.
-- **15 supported languages**, executed in a real sandbox via
-  [Judge0](https://judge0.com): Python 3, JavaScript, TypeScript, C++, C#, Go,
-  Rust, Ruby, Swift, Scala, PHP, Perl, Lua, OCaml, Zig. The list is detected from
-  the running Judge0 instance, so you only see languages that actually work —
-  Judge0 CE provides 14 of these (Zig needs the extra-languages image).
+    within; solves after expiry stay unrecorded.
+- **17 supported languages**, executed in a real sandbox via
+  [Judge0](https://judge0.com): Python 3, JavaScript, TypeScript, C++, C#, Java,
+  Kotlin, Go, Rust, Ruby, Swift, Scala, PHP, Perl, Lua, Bash, OCaml. The list is
+  detected from the running Judge0 instance, so you only see languages that
+  actually work.
+- **Per-language starter stubs (the transposer)** — each puzzle carries a
+  structured input descriptor, and the app deterministically generates idiomatic
+  stdin-parsing starter code for whatever language you pick (the single-player
+  analogue of CodinGame's auto-generated input parser). No network calls.
 - **5 difficulty tiers** — Beginner → Easy → Medium → Hard → Expert — with a
   bank of 51 built-in puzzles whose expected outputs are generated from
   reference solutions (so they're provably consistent).
@@ -289,5 +299,5 @@ avoid CORS. In production the browser calls Judge0 directly, so you must:
   - On Linux/CI, run on a cgroup-v1 host. To revert, set the flag back to
     `false` and restart.
 - **A language is missing from the dropdown** — your Judge0 image may not ship
-  it (e.g. Zig/Swift live in newer images). The app only lists what Judge0
-  reports.
+  it. The app only lists languages the running Judge0 actually reports, so a
+  language compiled into a different image simply won't appear.

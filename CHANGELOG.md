@@ -8,6 +8,52 @@ and this project aims to follow [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added — Clash of Code reskin, three modes & the transposer
+
+- **Visual reskin to match Clash of Code.** Rewrote `src/theme/ui.ts` and
+  `src/index.css` to the CoC neutral-dark palette (near-black `#1a1c1f` shell,
+  `#23262b` panels, muted-gray section labels, jester gold `#e9a648` / purple
+  `#8f79e7` accents, green submit). New `JesterMark` component + "Clash of Code"
+  wordmark replace the old `</>` "Solo Clash" brand; `index.html` title updated.
+- **Three authentic clash modes** (`ClashMode = fastest | shortest | reverse` in
+  `src/routes.ts`), orthogonal to the kept solo timer (`practice` stopwatch /
+  `timed` Beat-the-Clock):
+  - **Fastest** — score is completion time (existing `recordTimeMs`).
+  - **Shortest** — score is code size; live CODE SIZE meter; new
+    `recordSizeChars` / `getBestSizeChars` in `src/scores/store.ts`.
+  - **Reverse** — statement hidden until solved; only the examples are shown.
+  - `HomePage` lobby gains a clash-mode selector; `SolvePage` branches scoring,
+    shows a CoC-style clock-icon `12MN 27SC` countdown (`formatClashClock` +
+    `ClashClock`), a contributor hero header, and renders variable **chips**.
+- **Transposer — deterministic per-language starter stubs** (`src/judge/stubgen.ts`).
+  A puzzle now carries an optional structured `ioFormat` descriptor
+  (`src/puzzles/types.ts`); `generateStub(ioFormat, language)` emits idiomatic
+  stdin-parsing starter code for every supported language — the single-player
+  analogue of CoC's "Auto-generated code …". Pure and deterministic; no API
+  calls. `SolvePage` uses it for the editor's initial code (draft → stub →
+  template). `SpecText` renders inline `` `tokens` `` as variable chips, derived
+  automatically in the generator from the descriptor's variable names.
+- **Built-in bank** (`scripts/generate-puzzles.mjs`): added `ioFormat` for all 50
+  non-grid puzzles and chip markup on Input/Output/Constraints; regenerated
+  `generated.ts`. **AI generator** (`src/openai/puzzleGenerator.ts`): `ioFormat`
+  added to the structured-output schema, validated (shape, unique identifiers,
+  one-instruction-per-input-line, stub-generates), and attached to generated
+  puzzles, so AI puzzles also get per-language stubs.
+- **Languages: 14 → 17.** Removed **Zig** (Judge0 CE provides no Zig compiler, so
+  it was unreachable config). Added **Java**, **Kotlin**, and **Bash** with
+  starter templates and transposer dialects. Fixed a latent **TypeScript** bug:
+  Judge0's `tsc` rejected `require` without `@types/node`; stubs/templates now
+  `declare` it.
+- Tests: `+` code-size store, `formatClashClock`, `SpecText` chips, `stubgen`
+  units, `solvePath` clash round-trip, SolvePage Shortest/Reverse, generated-bank
+  descriptor guards, and a self-skipping **live** transposer test
+  (`stubgen.live.test.ts`) that compiles+runs every language's stub on Judge0.
+- Verification: `npm run quality` green (121 tests + build); `npm run
+test:coverage` 97.17% / 91.4% / 98.73% / 98.26%; `npm run lighthouse` 99 / 100 /
+  100; `npm run verify:judge0` 5/5 Accepted; `npm run test:e2e` solved Echo +
+  Circle Area; the live transposer test compiled+ran stubs for all 17 languages;
+  screenshots reviewed against the CoC reference.
+
 ### Added — Optional AI puzzle generation
 
 - `AccountPage` at `/account`: friendly OpenAI API key setup with masked entry,

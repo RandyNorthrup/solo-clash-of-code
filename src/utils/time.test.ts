@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest'
-import { formatCountdown, formatStopwatch, minutesToMs } from './time'
+import {
+  formatClashClock,
+  formatCountdown,
+  formatStopwatch,
+  minutesToMs,
+} from './time'
 
 describe('minutesToMs', () => {
   it('converts minutes to milliseconds', () => {
@@ -30,5 +35,18 @@ describe('formatCountdown', () => {
   it('never goes below zero', () => {
     expect(formatCountdown(0)).toBe('00:00')
     expect(formatCountdown(-1_000)).toBe('00:00')
+  })
+})
+
+describe('formatClashClock', () => {
+  it('splits into padded minute/second parts (the "12MN 27SC" readout)', () => {
+    expect(formatClashClock(747_000)).toEqual({ minutes: '12', seconds: '27' })
+    expect(formatClashClock(600_000)).toEqual({ minutes: '10', seconds: '00' })
+    expect(formatClashClock(59_000)).toEqual({ minutes: '00', seconds: '59' })
+  })
+
+  it('rounds up partial seconds and clamps at zero', () => {
+    expect(formatClashClock(1)).toEqual({ minutes: '00', seconds: '01' })
+    expect(formatClashClock(-5_000)).toEqual({ minutes: '00', seconds: '00' })
   })
 })

@@ -32,7 +32,7 @@ import { SolvePage } from './SolvePage'
 import { gradeAll } from '../judge/grade'
 import { getPuzzleById, getUserPuzzles, saveTempPuzzle } from '../puzzles/store'
 import type { Puzzle } from '../puzzles/types'
-import { getBestTimeMs } from '../scores/store'
+import { getBestSizeChars, getBestTimeMs } from '../scores/store'
 import { ROUTES } from '../routes'
 
 const TEMP_PUZZLE: Puzzle = {
@@ -127,6 +127,37 @@ describe('SolvePage', () => {
       screen.queryByText(/did not pass|Run failed/i),
     ).not.toBeInTheDocument()
     expect(screen.queryByText(/new best time/i)).not.toBeInTheDocument()
+  })
+
+  it('records a code-size best in Shortest mode', async () => {
+    gradeWith(() => 'pass')
+    const user = userEvent.setup()
+    renderSolve('/solve/echo?clash=shortest')
+
+    expect(screen.getByText(/Code size/i)).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Submit' }))
+
+    await waitFor(() => {
+      expect(screen.getByText(/new shortest/i)).toBeInTheDocument()
+    })
+    expect(getBestSizeChars('echo')).not.toBeNull()
+  })
+
+  it('hides the statement in Reverse mode until solved', async () => {
+    gradeWith(() => 'pass')
+    const user = userEvent.setup()
+    renderSolve('/solve/echo?clash=reverse')
+
+    // Statement is hidden; the reverse hint and examples are shown instead.
+    expect(screen.getByText(/Reverse mode/i)).toBeInTheDocument()
+    expect(screen.queryByText('Goal')).not.toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: 'Submit' }))
+
+    // After solving, the full statement (Goal section) is revealed.
+    await waitFor(() => {
+      expect(screen.getByText('Goal')).toBeInTheDocument()
+    })
   })
 
   it('saves a temporary generated puzzle as a named favorite', async () => {
