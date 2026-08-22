@@ -4,11 +4,11 @@
 // banner appears — proving real execution + grading + best-time recording.
 //
 // Requires Judge0 running (npm run judge0:up). Usage: npm run walkthrough
-import { spawn } from 'node:child_process'
 import { mkdirSync } from 'node:fs'
 import { setTimeout as sleep } from 'node:timers/promises'
 import process from 'node:process'
 import { chromium } from 'playwright'
+import { runVite, spawnVite } from './runtime.mjs'
 
 const PORT = 5173
 const BASE_URL = `http://localhost:${String(PORT)}`
@@ -16,10 +16,15 @@ const SERVER_READY_TIMEOUT_MS = 30_000
 const POLL_MS = 300
 const SUBMIT_TIMEOUT_MS = 180_000
 const OUTPUT = 'screenshots/solve-solved.png'
+const PRODUCTION_FLAG = '--production'
+const PRODUCTION_JUDGE0_URL = 'http://localhost:2358'
 
-async function waitForServer() {
+async function waitForServer(server) {
   const deadline = Date.now() + SERVER_READY_TIMEOUT_MS
   while (Date.now() < deadline) {
+    if (server.exitCode !== null || server.signalCode !== null) {
+      throw new Error('Vite server exited before becoming ready.')
+    }
     try {
       if ((await fetch(BASE_URL)).ok) {
         return
@@ -69,10 +74,20 @@ async function solve(page, puzzleId, code) {
 }
 
 async function main() {
-  const server = spawn('npm', ['run', 'dev'], { stdio: 'ignore' })
+  const production = process.argv.includes(PRODUCTION_FLAG)
+  if (production) {
+    await runVite(['build'], {
+      VITE_JUDGE0_URL: PRODUCTION_JUDGE0_URL,
+    })
+  }
+  const server = spawnVite(
+    production
+      ? ['preview', '--port', String(PORT), '--strictPort']
+      : ['--port', String(PORT), '--strictPort'],
+  )
   let browser
   try {
-    await waitForServer()
+    await waitForServer(server)
     browser = await chromium.launch({ channel: 'chrome', headless: true })
     const context = await browser.newContext({
       viewport: { width: 1440, height: 900 },
@@ -90,7 +105,9 @@ async function main() {
     // Circle Area: typed solution, exercises the float checker live.
     await solve(page, 'circle-area', CIRCLE_AREA_SOLUTION)
 
-    console.log(`Done. Screenshot: ${OUTPUT}`)
+    console.log(
+      `Done (${production ? 'production preview' : 'development'}). Screenshot: ${OUTPUT}`,
+    )
   } finally {
     if (browser !== undefined) {
       await browser.close()

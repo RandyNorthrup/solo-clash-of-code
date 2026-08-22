@@ -18,8 +18,7 @@ import type {
   IoVarType,
 } from '../puzzles/types'
 
-const WRITE_ANSWER =
-  'TODO: input is parsed above — write your answer to stdout.'
+const WRITE_ANSWER = 'Input is parsed above — write your answer to stdout.'
 
 interface WrapCtx {
   readonly varNames: string[]

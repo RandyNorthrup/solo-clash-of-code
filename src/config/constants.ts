@@ -75,6 +75,9 @@ export const JUDGE0_BATCH_SIZE = 20
 /** Solve history: per-entry record of every puzzle completion. */
 export const STORAGE_KEY_SOLVE_HISTORY = 'coding-game:solve-history:v1'
 
+/** DOM target for the keyboard skip-navigation link. */
+export const MAIN_CONTENT_ID = 'main-content'
+
 /** Maximum data-points shown in the per-puzzle sparkline. */
 export const SPARKLINE_MAX_POINTS = 10
 

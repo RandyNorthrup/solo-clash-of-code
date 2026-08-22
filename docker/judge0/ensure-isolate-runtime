@@ -1,0 +1,57 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+readonly CGROUP_ROOT="${ISOLATE_CGROUP_ROOT:-/sys/fs/cgroup}"
+readonly INIT_CGROUP="${CGROUP_ROOT}/init"
+readonly ISOLATE_RUNTIME_ROOT='/run/isolate'
+readonly -a REQUIRED_CONTROLLERS=('cpu' 'memory' 'io' 'pids')
+readonly MAX_DELEGATION_ATTEMPTS=5
+readonly DELEGATION_RETRY_DELAY_SECONDS='0.05'
+
+write_as_root() {
+  printf '%s\n' "$1" | sudo tee "$2" >/dev/null 2>&1
+}
+
+controllers_delegated() {
+  local controller
+  for controller in "${REQUIRED_CONTROLLERS[@]}"; do
+    grep -qw "${controller}" "${CGROUP_ROOT}/cgroup.subtree_control" || return 1
+  done
+}
+
+delegate_cgroup_v2_controllers() {
+  [[ -f "${CGROUP_ROOT}/cgroup.controllers" ]] || return
+
+  controllers_delegated && return
+
+  sudo mkdir -p "${INIT_CGROUP}"
+
+  local attempt=1
+  local controller_flags
+  printf -v controller_flags '+%s ' "${REQUIRED_CONTROLLERS[@]}"
+  controller_flags="${controller_flags% }"
+
+  while ((attempt <= MAX_DELEGATION_ATTEMPTS)); do
+    while IFS= read -r pid; do
+      [[ -n "${pid}" ]] || continue
+      write_as_root "${pid}" "${INIT_CGROUP}/cgroup.procs" || true
+    done <"${CGROUP_ROOT}/cgroup.procs"
+
+    write_as_root "$$" "${INIT_CGROUP}/cgroup.procs" || true
+    write_as_root "${controller_flags}" "${CGROUP_ROOT}/cgroup.subtree_control" || true
+
+    controllers_delegated && return
+
+    attempt=$((attempt + 1))
+    sleep "${DELEGATION_RETRY_DELAY_SECONDS}"
+  done
+
+  printf 'Judge0 startup failed: unable to delegate required cgroup v2 controllers: %s.\n' "${REQUIRED_CONTROLLERS[*]}" >&2
+  exit 1
+}
+
+delegate_cgroup_v2_controllers
+sudo mkdir -p "${ISOLATE_RUNTIME_ROOT}/locks"
+sudo chown root:root "${ISOLATE_RUNTIME_ROOT}" "${ISOLATE_RUNTIME_ROOT}/locks"
+write_as_root "${CGROUP_ROOT}" "${ISOLATE_RUNTIME_ROOT}/cgroup"

@@ -59,15 +59,15 @@ the browser.
 
 ## Tech stack
 
-| Concern        | Choice                                             |
-| -------------- | -------------------------------------------------- |
-| Build / dev    | Vite 8                                             |
-| UI             | React 19 + React Router 7                          |
-| Language       | TypeScript (strictest settings)                    |
-| Styling        | Tailwind CSS v4 (via `@tailwindcss/vite`)          |
-| Editor         | Monaco (`@monaco-editor/react`)                    |
-| Code execution | Judge0 CE (self-hosted via Docker), Vite dev-proxy |
-| Quality gates  | ESLint (type-checked, strict) + Prettier           |
+| Concern        | Choice                                      |
+| -------------- | ------------------------------------------- |
+| Build / dev    | Vite 8                                      |
+| UI             | React 19 + React Router 7                   |
+| Language       | TypeScript (strictest settings)             |
+| Styling        | Tailwind CSS v4 (via `@tailwindcss/vite`)   |
+| Editor         | Monaco (`@monaco-editor/react`)             |
+| Code execution | Repo-built Judge0 CE 1.13.1 + isolate 2.2.1 |
+| Quality gates  | ESLint (type-checked, strict) + Prettier    |
 
 There is **no custom backend** for development: the Vite dev server proxies
 `/judge0` to Judge0 and `/openai` to OpenAI for local-only API-key testing.
@@ -88,9 +88,10 @@ There is **no custom backend** for development: the Vite dev server proxies
 npm install
 
 # 2. Start the Judge0 execution sandbox (Docker)
-npm run judge0:up        # docker compose up -d
-#    First run pulls images and can take a few minutes.
-#    Verify it's up:  curl http://localhost:2358/languages
+npm run judge0:up        # docker compose up -d --wait
+#    First run builds the pinned sandbox image and can take a few minutes.
+#    The command waits for database, Redis, and API health checks.
+#    Verify execution: npm run verify:judge0
 
 # 3. Start the app
 npm run dev              # http://localhost:5173
@@ -109,30 +110,33 @@ To stop the sandbox: `npm run judge0:down`.
 
 ## npm scripts
 
-| Script                        | What it does                                      |
-| ----------------------------- | ------------------------------------------------- |
-| `npm run dev`                 | Start the Vite dev server                         |
-| `npm run build`               | Type-check and build for production               |
-| `npm run preview`             | Preview the production build                      |
-| `npm run typecheck`           | `tsc` with no emit                                |
-| `npm run lint`                | ESLint (strict, type-aware)                       |
-| `npm run lint:fix`            | ESLint with autofix                               |
-| `npm run format`              | Prettier write                                    |
-| `npm run format:check`        | Prettier check                                    |
-| `npm run check`               | typecheck + lint + format check + tests           |
-| `npm run quality`             | check + deadcode + security:audit + build         |
-| `npm run quality:ci`          | quality + Lighthouse (the full CI gate)           |
-| `npm run test` / `test:run`   | Vitest (watch / once)                             |
-| `npm run test:coverage`       | Coverage with thresholds (pure-logic modules)     |
-| `npm run test:e2e`            | Live solve walkthrough (needs Judge0)             |
-| `npm run test:e2e:full`       | Full standard + AI solve/favorite certification   |
-| `npm run deadcode`            | knip — unused files/exports/deps                  |
-| `npm run security:audit`      | `npm audit` gated at high severity                |
-| `npm run lighthouse`          | Build + direct Lighthouse assertions              |
-| `npm run screenshots`         | Capture UI screenshots (visual review)            |
-| `npm run verify:judge0`       | Live per-language execution check (needs Judge0)  |
-| `npm run puzzles:generate`    | Regenerate the puzzle bank from reference solvers |
-| `npm run judge0:up` / `:down` | Start / stop the Judge0 Docker stack              |
+| Script                           | What it does                                      |
+| -------------------------------- | ------------------------------------------------- |
+| `npm run dev`                    | Start the Vite dev server                         |
+| `npm run build`                  | Type-check and build for production               |
+| `npm run preview`                | Preview the production build                      |
+| `npm run typecheck`              | `tsc` with no emit                                |
+| `npm run lint`                   | ESLint (strict, type-aware)                       |
+| `npm run lint:fix`               | ESLint with autofix                               |
+| `npm run format`                 | Prettier write                                    |
+| `npm run format:check`           | Prettier check                                    |
+| `npm run check`                  | typecheck + lint + format check + tests           |
+| `npm run quality`                | check + deadcode + security:audit + build         |
+| `npm run quality:ci`             | quality + Lighthouse (the full CI gate)           |
+| `npm run test` / `test:run`      | Vitest (watch / once)                             |
+| `npm run test:coverage`          | Instrumented pure-logic coverage threshold gate   |
+| `npm run test:e2e`               | Live solve walkthrough (needs Judge0)             |
+| `npm run test:e2e:production`    | Build production URL + solve from static preview  |
+| `npm run test:e2e:standard-bank` | Solve all 10 certification-bank puzzles live      |
+| `npm run test:e2e:full`          | Standard + deterministic AI browser certification |
+| `npm run test:e2e:full:live-ai`  | Same flow against OpenAI (`OPENAI_API_KEY`)       |
+| `npm run deadcode`               | knip — unused files/exports/deps                  |
+| `npm run security:audit`         | `npm audit` gated at high severity                |
+| `npm run lighthouse`             | Build + direct Lighthouse assertions              |
+| `npm run screenshots`            | Capture UI screenshots (visual review)            |
+| `npm run verify:judge0`          | Live per-language execution check (needs Judge0)  |
+| `npm run puzzles:generate`       | Regenerate the puzzle bank from reference solvers |
+| `npm run judge0:up` / `:down`    | Start / stop the Judge0 Docker stack              |
 
 ---
 
@@ -197,6 +201,7 @@ src/
   pages/                  Home, Account, Solve, NewPuzzle, Stats, Share
 scripts/generate-puzzles.mjs   Puzzle generator (reference-solution verified)
 docker-compose.yml             Judge0 stack
+docker/judge0/                 Pinned image build, cgroup-v2 patch, startup QA
 ```
 
 ---
@@ -229,6 +234,7 @@ No repository secrets are required. See [`.env.example`](.env.example).
 | `JUDGE0_URL`           | No       | `http://localhost:2358`  | Judge0 base URL for `scripts/verify-judge0.mjs`.              |
 | `VITE_OPENAI_BASE_URL` | No       | `https://api.openai.com` | Prod OpenAI-compatible base URL/proxy for Account Setup.      |
 | `VITE_OPENAI_MODEL`    | No       | `gpt-5.5`                | AI puzzle generation model.                                   |
+| `OPENAI_API_KEY`       | No       | none                     | Shell-only credential for `test:e2e:full:live-ai`.            |
 
 \* Required in production if code execution must work (see Deployment below).
 
@@ -245,9 +251,13 @@ Configure a SPA fallback so all routes return `index.html`.
 In development, the Vite dev server proxies `/judge0` → `VITE_JUDGE0_URL` to
 avoid CORS. In production the browser calls Judge0 directly, so you must:
 
-1. **Self-host Judge0 CE** (or use a managed instance) and expose it over HTTPS.
-2. **Enable CORS**: pass `CORS_ALLOWED_ORIGINS=https://your-app.example.com` (or
-   `*`) to the Judge0 container — see `docker-compose.yml` for where to add it.
+1. **Build and host the repository's Judge0 image** from
+   `docker/judge0/Dockerfile`, then expose the API over HTTPS. The image pins the
+   official Judge0 1.13.1 base by digest and builds official isolate 2.2.1 from
+   a pinned commit, with the reviewed compatibility patches kept in this repo.
+2. **Restrict CORS**: set `ALLOW_ORIGIN=https://your-app.example.com` in the
+   deployment's Judge0 configuration. The committed `*` value and credentials
+   are explicitly for the local, non-public development stack.
 3. **Set `VITE_JUDGE0_URL` at build time** — Vite inlines it into the bundle:
    ```bash
    VITE_JUDGE0_URL=https://judge0.example.com npm run build
@@ -258,7 +268,7 @@ avoid CORS. In production the browser calls Judge0 directly, so you must:
 ### Deployment checklist
 
 - [ ] Judge0 reachable over HTTPS from the browser
-- [ ] CORS configured on Judge0 to allow your app's origin
+- [ ] Local Judge0 credentials replaced and CORS restricted to the app origin
 - [ ] `VITE_JUDGE0_URL` set at `npm run build` time
 - [ ] Optional AI: `VITE_OPENAI_BASE_URL` points to a trusted OpenAI-compatible
       endpoint if direct browser calls are blocked
@@ -276,10 +286,12 @@ avoid CORS. In production the browser calls Judge0 directly, so you must:
   client-side key on that device.
 - `npm run security:audit` gates at **high** severity; full `npm audit` currently
   reports 0 vulnerabilities.
-- `dompurify` is pinned with npm `overrides` to keep Monaco's transitive
-  sanitizer dependency on a patched version.
+- `dompurify` is pinned to `3.4.14` with npm `overrides` to keep Monaco's
+  transitive sanitizer dependency on a patched version.
 - `VITE_JUDGE0_URL` is validated in `vite.config.ts` (dev) and inlined at build time for production.
-- CI (`.github/workflows/ci.yml`) runs `quality` + Lighthouse on push/PR.
+- CI (`.github/workflows/ci.yml`) builds the repo-owned Judge0 stack and runs
+  quality, coverage, live sandbox, full browser, production-preview, and
+  Lighthouse gates on every push and pull request.
 
 ---
 
@@ -288,16 +300,15 @@ avoid CORS. In production the browser calls Judge0 directly, so you must:
 - **"No languages available"** — Judge0 isn't reachable. Run `npm run judge0:up`
   and confirm `curl http://localhost:2358/languages` returns JSON.
 - **Every submission returns "Internal Error" (`Failed to create control group`)**
-  — Judge0 1.13.1's `isolate` sandbox requires **cgroup v1**, but modern Docker
-  Desktop defaults to **cgroup v2**. Fix: enable cgroup v1 and restart the
-  daemon.
-  - Quit Docker Desktop, then in
-    `~/Library/Group Containers/group.com.docker/settings-store.json` set
-    `"deprecatedCgroupv1": true`, relaunch Docker Desktop.
-  - Confirm with `docker info | grep Cgroup` → `Cgroup Version: 1`, then
-    `npm run judge0:up` and `npm run verify:judge0` (expect all Accepted).
-  - On Linux/CI, run on a cgroup-v1 host. To revert, set the flag back to
-    `false` and restart.
+  — rebuild the repository-owned image and wait for its health checks:
+  `docker compose build --no-cache server`, then `npm run judge0:up`. Confirm
+  `docker compose exec workers isolate --version` reports 2.2.1 and
+  `npm run verify:judge0` passes. The repo image supports cgroup v1 and v2; no
+  Docker Desktop or host-kernel downgrade is required.
+- **Submission POSTs return HTTP 500 and logs mention `redis\\r` or `db\\r`** —
+  `judge0.conf` has Windows CRLF endings, which Judge0 preserves in container
+  environment values. Restore the file with LF endings; `.gitattributes` and a
+  regression test keep future checkouts safe.
 - **A language is missing from the dropdown** — your Judge0 image may not ship
   it. The app only lists languages the running Judge0 actually reports, so a
   language compiled into a different image simply won't appear.

@@ -34,8 +34,8 @@ for setup.
   security:audit + tests + build.
 - `npm run quality:ci` — `quality` + Lighthouse (Performance/Accessibility/
   Best-Practices; **SEO excluded**).
-- Live execution: `npm run verify:judge0`, `npm run test:e2e` (require Judge0 on
-  a cgroup-v1 host).
+- Live execution: `npm run verify:judge0`, `npm run test:e2e`, and
+  `npm run test:e2e:full` against the repo-owned Judge0 stack.
 - Visual: `npm run screenshots` (review for UI changes).
 
 ## Testing
@@ -61,5 +61,6 @@ for setup.
 
 ## Environment note
 
-- Judge0 1.13.1 needs **cgroup v1**. On cgroup-v2 hosts every submission returns
-  Internal Error — see README troubleshooting.
+- The repo-owned Judge0 1.13.1 image builds pinned isolate 2.2.1 and supports
+  cgroup v1 and v2. Do not replace it with an unreviewed prebuilt image or alter
+  host-wide Docker cgroup settings; see README troubleshooting.

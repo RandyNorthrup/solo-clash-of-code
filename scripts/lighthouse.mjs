@@ -3,12 +3,12 @@
 // same thresholds previously enforced by LHCI.
 //
 // Usage: npm run lighthouse
-import { spawn } from 'node:child_process'
 import { mkdirSync, writeFileSync } from 'node:fs'
 import { setTimeout as sleep } from 'node:timers/promises'
 import process from 'node:process'
 import lighthouse from 'lighthouse'
 import * as chromeLauncher from 'chrome-launcher'
+import { spawnVite } from './runtime.mjs'
 
 const PORT = 4173
 const BASE_URL = `http://localhost:${String(PORT)}`
@@ -22,9 +22,12 @@ const THRESHOLDS = {
   'best-practices': 0.9,
 }
 
-async function waitForServer() {
+async function waitForServer(server) {
   const deadline = Date.now() + SERVER_READY_TIMEOUT_MS
   while (Date.now() < deadline) {
+    if (server.exitCode !== null || server.signalCode !== null) {
+      throw new Error('Preview server exited before becoming ready.')
+    }
     try {
       const response = await fetch(BASE_URL)
       if (response.ok) {
@@ -60,15 +63,11 @@ function assertScores(report) {
 
 async function main() {
   mkdirSync(OUTPUT_DIR, { recursive: true })
-  const server = spawn(
-    'npm',
-    ['run', 'preview', '--', '--port', String(PORT), '--strictPort'],
-    { stdio: 'ignore' },
-  )
+  const server = spawnVite(['preview', '--port', String(PORT), '--strictPort'])
 
   let chrome
   try {
-    await waitForServer()
+    await waitForServer(server)
     chrome = await chromeLauncher.launch({
       chromeFlags: ['--headless=new', '--no-sandbox'],
     })

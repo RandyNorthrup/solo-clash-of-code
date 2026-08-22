@@ -2,11 +2,11 @@
 // and saves screenshots to screenshots/ for review and regression diffing.
 //
 // Usage:  npm run screenshots   (builds, serves the preview, captures, exits)
-import { spawn } from 'node:child_process'
 import { mkdirSync } from 'node:fs'
 import { setTimeout as sleep } from 'node:timers/promises'
 import process from 'node:process'
 import { chromium } from 'playwright'
+import { spawnVite } from './runtime.mjs'
 
 const PORT = 4173
 const BASE_URL = `http://localhost:${String(PORT)}`
@@ -24,12 +24,17 @@ const SCREENS = [
   { name: 'home', path: '/' },
   { name: 'account', path: '/account' },
   { name: 'new-puzzle', path: '/new' },
+  { name: 'stats', path: '/stats' },
   { name: 'solve', path: '/solve/echo' },
+  { name: 'share-error', path: '/share?p=invalid' },
 ]
 
-async function waitForServer() {
+async function waitForServer(server) {
   const deadline = Date.now() + SERVER_READY_TIMEOUT_MS
   while (Date.now() < deadline) {
+    if (server.exitCode !== null || server.signalCode !== null) {
+      throw new Error('Preview server exited before becoming ready.')
+    }
     try {
       const response = await fetch(BASE_URL)
       if (response.ok) {
@@ -63,15 +68,11 @@ async function capture(browser) {
 }
 
 async function main() {
-  const server = spawn(
-    'npm',
-    ['run', 'preview', '--', '--port', String(PORT), '--strictPort'],
-    { stdio: 'ignore' },
-  )
+  const server = spawnVite(['preview', '--port', String(PORT), '--strictPort'])
 
   let browser
   try {
-    await waitForServer()
+    await waitForServer(server)
     browser = await chromium.launch({ channel: 'chrome', headless: true })
     await capture(browser)
     console.log('\nScreenshots written to ./screenshots')

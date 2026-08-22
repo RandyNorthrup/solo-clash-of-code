@@ -8,6 +8,78 @@ and this project aims to follow [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Fixed — repo-owned Judge0 cgroup-v2 execution
+
+- Replaced the cgroup-v1 host dependency with a repository-owned Judge0 image.
+  It pins the official Judge0 CE 1.13.1 base by digest, builds official isolate
+  2.2.1 from an exact upstream commit, and applies the reviewed compatibility
+  changes from `docker/judge0/` during the image build. No third-party runtime
+  image or host-wide Docker setting is used.
+- Added fail-fast cgroup-v2 controller delegation at container startup while
+  keeping cgroup-v1 support. Startup verifies CPU, memory, I/O, and PID
+  delegation and fails visibly if any required controller is unavailable.
+- Gave compiler setup a named 30-second CPU / 60-second wall ceiling so cold
+  Kotlin/JVM compilation is reliable under test instrumentation without raising
+  the app's 5-second player-execution limit.
+- Fixed long-running Judge0 installations after submission ID 999 by mapping
+  unbounded database IDs into isolate's supported 0–999 box range. The live
+  regression was exercised without resetting PostgreSQL, starting at persisted
+  submission ID 1015; the stack now explicitly pins Judge0's pending-queue
+  ceiling to 100, safely below isolate's 1,000-box namespace.
+- Converted the image to a multi-stage build, pinned the PostgreSQL and Redis
+  images by digest, and added database, cache, and API health checks.
+- CI now starts the same repo-owned Judge0 stack and runs real execution gates
+  instead of omitting them on cgroup-v2 runners.
+- GitHub Actions dependencies are pinned to exact reviewed commit SHAs instead
+  of mutable major tags.
+- The pure-logic coverage command excludes the live sandbox integration file;
+  that file runs uninstrumented in `quality`, followed by dedicated Judge0 and
+  browser gates. This prevents coverage instrumentation from starving slow
+  compilers such as Kotlin while preserving both test arms.
+- Repaired full browser certification: the default run now tests the Account
+  flow and 10 AI puzzles with deterministic schema-valid OpenAI transport
+  fixtures while every generated reference solution and player submission still
+  executes in real Judge0. `test:e2e:full:live-ai` remains the explicit
+  credentialed OpenAI transport check.
+- Hardened browser harness cleanup for current Playwright: deterministic AI
+  retries recognize QA-feedback prompts, mock transport failures return explicit
+  HTTP errors, and every runner fails immediately if its Vite child exits.
+- Live verification on Docker Desktop cgroup v2: Python, JavaScript, Ruby, C++,
+  and Go all returned `Accepted`; the 10-puzzle standard bank and the complete
+  20-puzzle standard + AI browser flow passed.
+- Final gates: `quality:ci` passed with 126 tests (including generated stubs in
+  all 17 languages), Lighthouse 99 / 100 / 100, pure-logic coverage 97.17% /
+  91.4% / 98.73% / 98.26%, full `npm audit` with zero vulnerabilities, and
+  production-preview Echo/Circle Area solves through the browser-facing URL.
+- The visual harness now covers all primary screens plus Share failure handling:
+  12 desktop/mobile screenshots for Home, Account, New Puzzle, Stats, Solve,
+  and Share error states.
+
+### Changed — responsive shell and dependency hardening
+
+- Mobile navigation now moves below the brand and distributes all four primary
+  routes across the available width. `Play`, `Account`, `New Puzzle`, and
+  `Stats` remain visible without horizontal overflow down to 320 px.
+- Added a labelled primary navigation landmark, a keyboard-first "Skip to main
+  content" link, and a consistent high-contrast `:focus-visible` treatment.
+- Added `Layout` component coverage for route exposure, active-page semantics,
+  the main-content target, and skip-link tab order.
+- Added `.gitattributes` with LF normalization so Windows clones pass the
+  repository's Prettier gate without a whole-tree line-ending rewrite.
+- Normalized `judge0.conf` to LF and added a regression test for its service
+  host values. This prevents Windows carriage returns from becoming `redis\\r`
+  or `db\\r` inside the Judge0 containers and turning every submission into an
+  HTTP 500 response.
+- Refreshed dependencies within declared ranges and raised the DOMPurify
+  override to `3.4.14`; `npm audit` returns zero vulnerabilities again.
+- Verification scripts now launch the repository-local Vite CLI directly
+  through Node. This removes the Windows `npm` spawn failure from Lighthouse
+  and screenshots; live walkthrough runners share the same launcher.
+- Verification: `npm run quality` passed with 124 tests and one live-only test
+  skipped in the earlier UI-only run; Lighthouse scored
+  Performance 99, Accessibility 100, and Best Practices 100; eight desktop and
+  mobile screenshots were captured and visually reviewed.
+
 ### Added — Clash of Code reskin, three modes & the transposer
 
 - **Visual reskin to match Clash of Code.** Rewrote `src/theme/ui.ts` and
@@ -333,8 +405,8 @@ functions: 90, lines: 90 }`. Measured aggregate: Stmts 98.17% · Branches
 - Aggregate gates: `npm run quality` (typecheck + lint + format + deadcode +
   audit + tests + build) and `npm run quality:ci` (+ Lighthouse). Replaced the
   ad-hoc `gate` script. Added `test:unit` / `test:e2e` aliases.
-- CI: `.github/workflows/ci.yml` (GitHub Actions, Node 22) running `quality` +
-  Lighthouse. Live Judge0 gates excluded from CI (cgroup-v1 requirement).
+- CI originally ran `quality` + Lighthouse without Judge0. The Unreleased
+  cgroup-v2 runtime work above supersedes that limitation and adds live gates.
 - Agent instruction files: `AGENTS.md` (canonical), `CLAUDE.md`,
   `.github/copilot-instructions.md`, `.cursor/rules/standards.mdc`.
 - PLAN.md expanded with assumptions, open questions, dependency-verification,
@@ -390,7 +462,7 @@ functions: 90, lines: 90 }`. Measured aggregate: Stmts 98.17% · Branches
 
 ### Certification
 
-- **All milestones to date are certified.** With Judge0 running on cgroup v1:
+- **Historical certification:** with Judge0 then running on cgroup v1:
   `npm run verify:judge0` → 5/5 Accepted (Python, JS, Ruby, C++, Go);
   `npm run walkthrough` solved Echo end-to-end (3/3 cases passed, best time
   recorded). 14/15 languages resolve live (Zig absent in CE, correctly
@@ -399,10 +471,11 @@ functions: 90, lines: 90 }`. Measured aggregate: Stmts 98.17% · Branches
 
 ### Environment
 
-- Judge0 1.13.1 requires **cgroup v1**. On this Docker Desktop (cgroup v2)
-  every submission returned `Internal Error`; fixed by setting
+- The original Judge0 1.13.1 image required **cgroup v1**. On Docker Desktop
+  cgroup v2, submissions returned `Internal Error`; it was then fixed by setting
   `deprecatedCgroupv1: true` in Docker Desktop settings and restarting the
-  daemon. Documented in README troubleshooting.
+  daemon. The Unreleased repo-owned isolate 2.2.1 image supersedes this
+  historical workaround; no host setting change is now required.
 
 ### Process
 

@@ -7,23 +7,31 @@ on:
 jobs:
   quality:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: '22'
           cache: 'npm'
       - run: npm ci
+      # Build and health-check the repo-owned cgroup-v2 Judge0 stack first so
+      # quality includes the live all-language transposer test.
+      - run: npm run judge0:up
       # Aggregate gate: typecheck + lint + format + dead-code + audit(high) + tests + build
       - run: npm run quality
       # Coverage threshold gate on pure-logic modules (≥90% stmts/funcs/lines, ≥80% branches).
-      # Runs separately so failures report the exact uncovered files.
+      # The live integration test already ran under quality and is deliberately
+      # excluded from CPU-instrumented coverage; verify/e2e repeat the live arm.
       - run: npm run test:coverage
+      # Real sandbox and complete browser flow: 5-language smoke, all 10
+      # built-ins, and 10 deterministic AI puzzles through Judge0.
+      - run: npm run verify:judge0
+      - run: npm run test:e2e:full
+      - run: npm run test:e2e:production
       # Direct Lighthouse gate (Performance / Accessibility / Best-Practices; SEO excluded).
       # ubuntu-latest ships Chrome for the local Lighthouse runner.
       - run: npm run lighthouse
-
-# Note: the live execution gates (test:e2e / verify:judge0) are NOT run in CI.
-# They require a Judge0 sandbox on a cgroup-v1 host, which GitHub-hosted runners
-# (cgroup v2) do not provide. Run them on a self-hosted cgroup-v1 runner or
-# locally — see README troubleshooting.
+      - name: Stop Judge0
+        if: always()
+        run: npm run judge0:down

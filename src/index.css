@@ -23,6 +23,11 @@ body {
     sans-serif;
 }
 
+:focus-visible {
+  outline: 2px solid #e9a648;
+  outline-offset: 3px;
+}
+
 /* Thin custom scrollbars to match the Clash-of-Code dark look */
 * {
   scrollbar-width: thin;

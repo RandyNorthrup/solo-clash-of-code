@@ -3,12 +3,18 @@
 # It exposes the REST API on http://localhost:2358 which the Vite dev server
 # proxies under /judge0 (see vite.config.ts).
 #
-# Note: Judge0 needs privileged containers for its sandbox (isolate). On Docker
-# Desktop (macOS) this works, but if you hit cgroup errors see:
-# https://github.com/judge0/judge0/blob/master/CHANGELOG.md
+# Judge0 needs privileged containers for its isolate sandbox. The repo-owned
+# image keeps Judge0 CE 1.13.1 and upgrades isolate to pinned 2.2.1 for cgroup
+# v1/v2 support. See docker/judge0/Dockerfile.
+x-judge0-image: &judge0-image
+  image: solo-clash-of-code/judge0:1.13.1-isolate-2.2.1
+  build:
+    context: .
+    dockerfile: docker/judge0/Dockerfile
+
 services:
   server:
-    image: judge0/judge0:1.13.1
+    <<: *judge0-image
     volumes:
       - ./judge0.conf:/judge0.conf:ro
     ports:
@@ -16,29 +22,53 @@ services:
     privileged: true
     restart: always
     depends_on:
-      - db
-      - redis
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test:
+        [
+          'CMD-SHELL',
+          'curl --fail --silent http://localhost:2358/languages >/dev/null',
+        ]
+      interval: 5s
+      timeout: 3s
+      retries: 24
+      start_period: 30s
 
   workers:
-    image: judge0/judge0:1.13.1
+    <<: *judge0-image
     command: ['./scripts/workers']
     volumes:
       - ./judge0.conf:/judge0.conf:ro
     privileged: true
     restart: always
     depends_on:
-      - db
-      - redis
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
 
   db:
-    image: postgres:16.2
+    image: postgres:16.2@sha256:4aea012537edfad80f98d870a36e6b90b4c09b27be7f4b4759d72db863baeebb
     env_file: judge0.conf
     volumes:
       - postgres-data:/var/lib/postgresql/data/
     restart: always
+    healthcheck:
+      test:
+        [
+          'CMD-SHELL',
+          'pg_isready --username="$${POSTGRES_USER}" --dbname="$${POSTGRES_DB}"',
+        ]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+      start_period: 10s
 
   redis:
-    image: redis:7.2.4
+    image: redis:7.2.4@sha256:5a93f6b2e391b78e8bd3f9e7e1e1e06aeb5295043b4703fb88392835cec924a0
     command:
       [
         'bash',
@@ -49,6 +79,16 @@ services:
     volumes:
       - redis-data:/data
     restart: always
+    healthcheck:
+      test:
+        [
+          'CMD-SHELL',
+          'redis-cli --no-auth-warning -a "$${REDIS_PASSWORD}" ping | grep -q PONG',
+        ]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+      start_period: 10s
 
 volumes:
   postgres-data:

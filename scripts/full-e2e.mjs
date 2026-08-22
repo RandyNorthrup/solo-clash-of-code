@@ -1,12 +1,11 @@
-// Full live certification: drives the browser through standard and AI puzzle
-// modes, solves 2 puzzles per difficulty in each mode, and requires Judge0 +
-// OpenAI to be live. The OpenAI key is read from ignored temp/openai_api.md and
-// never printed.
-import { spawn } from 'node:child_process'
-import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+// Full deterministic certification: drives the browser through standard and AI
+// puzzle modes and solves 2 puzzles per difficulty in each mode. AI transport is
+// intercepted with schema-valid fixtures by default; --live-ai uses OpenAI.
+import { mkdirSync, writeFileSync } from 'node:fs'
 import process from 'node:process'
 import { setTimeout as sleep } from 'node:timers/promises'
 import { chromium } from 'playwright'
+import { spawnVite } from './runtime.mjs'
 
 const PORT = 5173
 const BASE_URL = `http://localhost:${String(PORT)}`
@@ -14,12 +13,19 @@ const SERVER_READY_TIMEOUT_MS = 30_000
 const SERVER_POLL_INTERVAL_MS = 300
 const SUBMIT_TIMEOUT_MS = 180_000
 const AI_BUILD_TIMEOUT_MS = 360_000
-const KEY_PATH = 'temp/openai_api.md'
+const STANDARD_ONLY_FLAG = '--standard-only'
+const LIVE_AI_FLAG = '--live-ai'
+const OPENAI_API_KEY_ENV = 'OPENAI_API_KEY'
+const MOCK_OPENAI_API_KEY = 'sk-e2e-deterministic-fixture-key'
+const OPENAI_RESPONSES_ROUTE = `${BASE_URL}/openai/v1/responses`
 const SCREENSHOT_DIR = 'screenshots'
 const REPORT_PATH = 'screenshots/full-e2e-report.json'
 const SESSION_KEY_AI_REFERENCE_SOLUTIONS =
   'coding-game:ai-reference-solutions:v1'
 const REQUIRED_AI_PER_DIFFICULTY = 2
+const MOCK_MODULUS = 7
+const HTTP_OK_STATUS = 200
+const HTTP_INTERNAL_SERVER_ERROR_STATUS = 500
 
 const DIFFICULTIES = ['Beginner', 'Easy', 'Medium', 'Hard', 'Expert']
 
@@ -77,17 +83,112 @@ const STANDARD_PUZZLES = {
 }
 
 function loadOpenAiKey() {
-  const text = readFileSync(KEY_PATH, 'utf8')
-  const match = text.match(/sk-[A-Za-z0-9_-]{20,}/u)
-  if (match === null) {
-    throw new Error(`No OpenAI API key found in ${KEY_PATH}`)
+  const apiKey = process.env[OPENAI_API_KEY_ENV]?.trim()
+  if (apiKey === undefined || apiKey.length === 0) {
+    throw new Error(`Set ${OPENAI_API_KEY_ENV} for live AI certification.`)
   }
-  return match[0]
+  return apiKey
 }
 
-async function waitForServer() {
+function parseRequestedDifficulty(requestBody) {
+  const serializedInput = JSON.stringify(requestBody.input ?? [])
+  const difficulty = DIFFICULTIES.find(
+    (candidate) =>
+      serializedInput.includes(`Create one ${candidate}`) ||
+      serializedInput.includes(`different ${candidate}`),
+  )
+  if (difficulty === undefined) {
+    throw new Error('Mock OpenAI request did not identify a difficulty.')
+  }
+  return difficulty
+}
+
+function buildMockPuzzle(difficulty, sequence) {
+  const normalizedDifficulty = difficulty.toLowerCase()
+  return {
+    title: `${difficulty} Modulo ${String(sequence)}`,
+    difficulty: normalizedDifficulty,
+    statement: `Given one integer, print its remainder after division by ${String(MOCK_MODULUS)} using modulo arithmetic.`,
+    constraints: '-1000 <= value <= 1000',
+    inputSpec: 'Line 1: One integer named value.',
+    outputSpec: `Line 1: The modulo ${String(MOCK_MODULUS)} remainder of value.`,
+    ioFormat: [
+      {
+        kind: 'read',
+        vars: [{ name: 'value', type: 'int' }],
+      },
+    ],
+    referenceSolutionPython: `import sys\nvalue = int(sys.stdin.read().strip())\nprint(value % ${String(MOCK_MODULUS)})`,
+    testcases: [
+      {
+        title: 'positive value',
+        input: '8',
+        expectedOutput: '1',
+        hidden: false,
+        match: 'trimmed',
+      },
+      {
+        title: 'negative value',
+        input: '-1',
+        expectedOutput: '6',
+        hidden: false,
+        match: 'trimmed',
+      },
+      {
+        title: 'multiple of seven',
+        input: '14',
+        expectedOutput: '0',
+        hidden: true,
+        match: 'trimmed',
+      },
+    ],
+  }
+}
+
+async function installMockOpenAi(page) {
+  let sequence = 0
+  await page.route(OPENAI_RESPONSES_ROUTE, async (route) => {
+    try {
+      const rawBody = route.request().postData()
+      if (rawBody === null) {
+        throw new Error('Mock OpenAI request body is missing.')
+      }
+      const requestBody = JSON.parse(rawBody)
+      const isPuzzleRequest =
+        requestBody.text?.format?.name === 'solo_clash_puzzle'
+      const outputText = isPuzzleRequest
+        ? JSON.stringify(
+            buildMockPuzzle(parseRequestedDifficulty(requestBody), ++sequence),
+          )
+        : 'ok'
+      await route.fulfill({
+        status: HTTP_OK_STATUS,
+        contentType: 'application/json',
+        body: JSON.stringify({ output_text: outputText }),
+      })
+    } catch (error) {
+      await route.fulfill({
+        status: HTTP_INTERNAL_SERVER_ERROR_STATUS,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          error: {
+            message:
+              error instanceof Error
+                ? error.message
+                : 'Mock OpenAI transport failed.',
+          },
+        }),
+      })
+    }
+  })
+}
+
+async function waitForServer(server) {
   const deadline = Date.now() + SERVER_READY_TIMEOUT_MS
   while (Date.now() < deadline) {
+    if (server.exitCode !== null || server.signalCode !== null) {
+      throw new Error('Dev server exited before becoming ready.')
+    }
     try {
       if ((await fetch(BASE_URL)).ok) {
         return
@@ -222,7 +323,7 @@ async function solveAiPuzzle(page, difficulty, index) {
   return { puzzleId, savedName }
 }
 
-async function runCertification(page) {
+async function runCertification(page, includeAi) {
   const solvedStandard = []
   const solvedAi = []
 
@@ -233,10 +334,12 @@ async function runCertification(page) {
     }
   }
 
-  for (const difficulty of DIFFICULTIES) {
-    for (let index = 0; index < REQUIRED_AI_PER_DIFFICULTY; index += 1) {
-      const solved = await solveAiPuzzle(page, difficulty, index)
-      solvedAi.push({ difficulty, ...solved })
+  if (includeAi) {
+    for (const difficulty of DIFFICULTIES) {
+      for (let index = 0; index < REQUIRED_AI_PER_DIFFICULTY; index += 1) {
+        const solved = await solveAiPuzzle(page, difficulty, index)
+        solvedAi.push({ difficulty, ...solved })
+      }
     }
   }
 
@@ -244,15 +347,19 @@ async function runCertification(page) {
 }
 
 async function main() {
-  const apiKey = loadOpenAiKey()
-  const server = spawn(
-    'npm',
-    ['run', 'dev', '--', '--port', String(PORT), '--strictPort'],
-    { stdio: 'ignore' },
-  )
+  const standardOnly = process.argv.includes(STANDARD_ONLY_FLAG)
+  const liveAi = process.argv.includes(LIVE_AI_FLAG)
+  if (standardOnly && liveAi) {
+    throw new Error(
+      `${STANDARD_ONLY_FLAG} and ${LIVE_AI_FLAG} cannot be combined.`,
+    )
+  }
+  const includeAi = !standardOnly
+  const apiKey = liveAi ? loadOpenAiKey() : MOCK_OPENAI_API_KEY
+  const server = spawnVite(['--port', String(PORT), '--strictPort'])
   let browser
   try {
-    await waitForServer()
+    await waitForServer(server)
     browser = await chromium.launch({ channel: 'chrome', headless: true })
     const context = await browser.newContext({
       viewport: { width: 1440, height: 900 },
@@ -263,8 +370,13 @@ async function main() {
     const page = await context.newPage()
     page.setDefaultTimeout(SUBMIT_TIMEOUT_MS)
 
-    await installOpenAiKey(page, apiKey)
-    const report = await runCertification(page)
+    if (includeAi && !liveAi) {
+      await installMockOpenAi(page)
+    }
+    if (includeAi) {
+      await installOpenAiKey(page, apiKey)
+    }
+    const report = await runCertification(page, includeAi)
 
     mkdirSync(SCREENSHOT_DIR, { recursive: true })
     await page.screenshot({

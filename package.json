@@ -14,9 +14,12 @@
     "test": "vitest",
     "test:run": "vitest run",
     "test:unit": "vitest run",
-    "test:coverage": "vitest run --coverage",
+    "test:coverage": "vitest run --coverage --exclude src/judge/stubgen.live.test.ts",
     "test:e2e": "node scripts/walkthrough.mjs",
+    "test:e2e:production": "node scripts/walkthrough.mjs --production",
     "test:e2e:full": "node scripts/full-e2e.mjs",
+    "test:e2e:full:live-ai": "node scripts/full-e2e.mjs --live-ai",
+    "test:e2e:standard-bank": "node scripts/full-e2e.mjs --standard-only",
     "deadcode": "knip",
     "security:audit": "npm audit --omit=dev --audit-level=high",
     "check": "npm run typecheck && npm run lint && npm run format:check && npm run test:run",
@@ -27,7 +30,7 @@
     "walkthrough": "node scripts/walkthrough.mjs",
     "puzzles:generate": "node scripts/generate-puzzles.mjs",
     "verify:judge0": "node scripts/verify-judge0.mjs",
-    "judge0:up": "docker compose up -d",
+    "judge0:up": "docker compose up -d --wait",
     "judge0:down": "docker compose down",
     "preview": "vite preview"
   },
@@ -38,7 +41,7 @@
     "react-router-dom": "^7.17.0"
   },
   "overrides": {
-    "dompurify": "3.4.9"
+    "dompurify": "3.4.14"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

@@ -13,16 +13,18 @@ export const ui = {
   // App shell & layout
   appShell: 'flex min-h-screen flex-col bg-[#1a1c1f] text-[#e6e8eb]',
   header:
-    'flex items-center justify-between border-b border-[#2a2d33] bg-[#16181b] px-4 py-3 sm:px-6',
+    'flex flex-wrap items-center justify-between gap-x-3 gap-y-2 border-b border-[#2a2d33] bg-[#16181b] px-4 py-3 sm:flex-nowrap sm:px-6',
+  skipLink:
+    'sr-only z-50 rounded-md bg-[#e9a648] px-3 py-2 font-semibold text-[#1a1c1f] focus:not-sr-only focus:fixed focus:left-3 focus:top-3',
   brand:
     'flex shrink-0 items-center gap-2 whitespace-nowrap text-lg font-bold tracking-tight text-[#e6e8eb]',
   brandMark: 'flex size-7 items-center justify-center text-[#e9a648]',
   brandWord: 'text-[#e9a648]',
-  nav: 'flex items-center gap-1 overflow-x-auto',
+  nav: 'flex w-full items-center justify-between gap-1 sm:w-auto sm:justify-start',
   navLink:
-    'whitespace-nowrap rounded-md px-3 py-1.5 text-sm font-medium text-[#9aa0a8] transition-colors hover:bg-[#23262b] hover:text-[#e6e8eb]',
+    'flex-1 whitespace-nowrap rounded-md px-2 py-1.5 text-center text-sm font-medium text-[#9aa0a8] transition-colors hover:bg-[#23262b] hover:text-[#e6e8eb] sm:flex-none sm:px-3',
   navLinkActive:
-    'whitespace-nowrap rounded-md bg-[#23262b] px-3 py-1.5 text-sm font-semibold text-[#e9a648]',
+    'flex-1 whitespace-nowrap rounded-md bg-[#23262b] px-2 py-1.5 text-center text-sm font-semibold text-[#e9a648] sm:flex-none sm:px-3',
   main: 'mx-auto w-full max-w-7xl flex-1 px-4 py-5 sm:px-6 sm:py-6',
   page: 'flex flex-col gap-6',
   pageTitle: 'text-2xl font-semibold tracking-tight text-[#e6e8eb]',

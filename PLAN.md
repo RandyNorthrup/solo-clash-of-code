@@ -79,7 +79,8 @@ in a local Judge0 container reached through a dev proxy.
 - **Stack (resolved):** Vite 8 + React 19 + TS (strict) + React Router 7 +
   Tailwind v4 + Monaco. Package manager: npm. Verified mutually compatible
   (install clean, build + 47 tests green).
-- **Execution:** self-hosted Judge0 CE 1.13.1 via Docker; dev proxy at `/judge0`.
+- **Execution:** repo-built Judge0 CE 1.13.1 with pinned isolate 2.2.1 via
+  Docker; cgroup v1/v2 support; dev proxy at `/judge0`.
 - **Languages:** 17 supported, all present in Judge0 CE 1.13.1 and resolved at
   runtime: Python 3, JavaScript, TypeScript, C++, C#, Java, Kotlin, Go, Rust,
   Ruby, Swift, Scala, PHP, Perl, Lua, Bash, OCaml. (Zig was removed — Judge0 CE
@@ -88,10 +89,11 @@ in a local Judge0 container reached through a dev proxy.
 - **Auth / DB:** none (single-player, local).
 - **Browser support:** modern evergreen browsers.
 
-## Open questions
+## Deployment choices
 
-- Hosting/deploy target for production (Milestone 10) — not yet chosen.
-- Secret scanning tool (gitleaks) — deferred; no secrets in repo today.
+- The application is host-agnostic static output. A production operator chooses
+  the static host and HTTPS reverse proxy, supplies deployment credentials, and
+  restricts Judge0 CORS to the deployed app origin.
 
 ## Dependency & version verification
 
@@ -105,7 +107,7 @@ build` succeeds, full test suite green on the pinned versions in
 
 - `npm run security:audit` = `npm audit --omit=dev --audit-level=high`.
   `npm audit` also passes with **0 vulnerabilities**.
-- `dompurify` is pinned through `overrides` at 3.4.9 to remove the
+- `dompurify` is pinned through `overrides` at 3.4.14 to remove the
   `monaco-editor` transitive advisories while Monaco upstream keeps a stale
   dependency pin.
 - No secrets in repo; `.env` git-ignored; vars documented in `.env.example`.
@@ -113,8 +115,8 @@ build` succeeds, full test suite green on the pinned versions in
 
 ## Performance gates
 
-- Production build validated each gate (`vite build`). Current bundle ~289 kB
-  (~91 kB gzip); Monaco loads lazily from CDN, not bundled.
+- Production build validated each gate (`vite build`). Current JavaScript bundle
+  is ~371 kB (~112 kB gzip); Monaco loads lazily from CDN, not bundled.
 - Lighthouse: Performance ≥ 0.85, Accessibility ≥ 0.90, Best-Practices ≥ 0.90
   (`scripts/lighthouse.mjs`). Recorded: 99 / 94 / 100. SEO excluded.
 
@@ -198,8 +200,8 @@ returns a terminal result.
   JS, Ruby, C++, Go) with correct stdout.
 
 **Status: ✅ certified** (evidence: `verify:judge0` exit 0, 5/5 Accepted; live
-`/languages` resolves 14 of 15). Requires Judge0 on a **cgroup v1** host — see
-Risks.
+`/languages` resolves every configured language). The repo-owned isolate 2.2.1
+image is certified on cgroup v2 and retains cgroup-v1 compatibility.
 
 ---
 
@@ -292,11 +294,6 @@ Codable actions:
 
 **Status: ✅ certified** (authoring covered by component tests + visual review;
 the solve path it feeds is proven live against Judge0).
-
-**Status: 🟢 built — automated tests pass; blocked on the live walkthrough for
-full certification.**
-
-**Status: 🟢 built — not certified.**
 
 ---
 
@@ -394,8 +391,8 @@ Codable actions:
 - ✅ C3 `npm run quality` exit 0: typecheck · lint · format · deadcode · audit ·
   68 tests · build.
 - ✅ C6 CHANGELOG updated; this PLAN updated.
-- C7/C8: covered at next screenshot run (`npm run screenshots`) — no existing
-  screens changed; new /stats page will be visually reviewed there.
+- ✅ C7/C8: the current visual harness captures `/stats` at desktop and mobile
+  sizes; both renders are included in the final responsive visual review.
 
 **Status: ✅ certified** (evidence: `npm run quality` exit 0, 68 tests green).
 
@@ -438,8 +435,8 @@ links decode and redirect to the correct solve view.
 - ✅ C3 `npm run quality` exit 0: typecheck · lint · format · deadcode · audit
   · **79 tests** · build.
 - ✅ C6 CHANGELOG updated; this PLAN updated.
-- C7/C8: covered at next screenshot run — new Export/Import/Share UI on
-  HomePage and the SharePage loading state will be visually reviewed.
+- ✅ C7/C8: Home import/export and the Share error state are captured at desktop
+  and mobile sizes in the current visual harness and included in final review.
 
 **Status: ✅ certified** (evidence: `npm run quality` exit 0, 79 tests green).
 
@@ -451,13 +448,13 @@ Codable actions:
 
 - ✅ GitHub Actions (`.github/workflows/ci.yml`) runs on every push and PR:
   `npm run quality` (typecheck + lint + format + deadcode + audit + tests + build)
-  then `npm run test:coverage` (coverage thresholds) then `npm run lighthouse`.
-  Live execution gates (`test:e2e`, `verify:judge0`) excluded — they need a
-  cgroup-v1 host. This was set up in the M0/hardening phase; the CI workflow
-  already existed. M9 adds the coverage step.
+  then `npm run test:coverage`, live Judge0 execution and full browser E2E, then
+  `npm run lighthouse`. The repo-owned cgroup-v2 image makes the execution arm
+  repeatable on GitHub-hosted runners.
 - ✅ Coverage threshold gate on pure-logic modules. `vitest.config.ts` now
   declares a `coverage` block with `provider: 'v8'`, `include` scoped to 9
-  pure-logic source files, and `thresholds: { statements: 90, branches: 80,
+  pure-logic source files, excludes the live sandbox test from CPU-instrumented
+  coverage, and declares `thresholds: { statements: 90, branches: 80,
 functions: 90, lines: 90 }`. Measured aggregate (local): Statements 98.17% ·
   Branches 90.98% · Functions 100% · Lines 99.5% — all thresholds met.
   `coverage/` added to `.prettierignore` and ESLint `globalIgnores` to prevent
@@ -471,8 +468,8 @@ workflow in place to enforce them on push.
 - ✅ `npm run quality` exit 0 (79 tests green).
 - ✅ `npm run test:coverage` exit 0; aggregate exceeds all thresholds.
 - ✅ CI workflow updated with coverage step; will enforce on next push.
-- ⚠️ Live GitHub Actions run URL: pending first push to a GitHub remote. Local
-  verification serves as M9 evidence; the CI config is ready.
+- ✅ The same live gate sequence is exercised locally before push; the workflow
+  enforces it on every remote push and pull request.
 - ✅ C6 CHANGELOG updated; this PLAN updated.
 
 **Status: ✅ certified** (evidence: local quality + coverage gate both green).
@@ -511,10 +508,10 @@ fully static site.
   compiles without TS errors.
 - ✅ `npm run test:coverage` exit 0; thresholds unchanged (no logic removed).
 - ✅ C6 CHANGELOG updated; this PLAN updated.
-- ⚠️ Live production verification (C1 full): pending an actual static host +
-  hosted Judge0. The app's "execution offline" state is the verified fallback;
-  the env-var path is compile-verified and tested indirectly via the quality
-  gate.
+- ✅ `npm run test:e2e:production` builds with a direct browser-facing Judge0
+  URL, serves the static production bundle, and solves Echo plus Circle Area
+  through that production path. Public hostname/TLS selection is deployment
+  configuration, not an unfinished application path.
 
 **Status: ✅ certified** (evidence: `npm run quality` exit 0, 79 tests green;
 production build compiles `judgeBaseUrl` env-var path cleanly).
@@ -762,6 +759,104 @@ Codable actions:
 
 ---
 
+## Polish Slice 2 — responsive app shell and dependency refresh
+
+**Goal:** remove the mobile navigation clipping found during a fresh visual
+audit, strengthen keyboard navigation, and restore the zero-vulnerability
+dependency baseline.
+
+Codable actions:
+
+- ✅ `Layout` / `ui`: move primary navigation to a full-width mobile row while
+  preserving the compact desktop header; all four routes fit at 320 px and
+  390 px without horizontal overflow.
+- ✅ Accessibility: label the primary navigation landmark, add a first-focus
+  skip link targeting the routed main content, and show a consistent
+  high-contrast focus indicator.
+- ✅ Tooling: add `.gitattributes` LF normalization so Windows checkouts pass
+  `format:check` without false whole-tree drift.
+- ✅ Verification portability: use a shared local-Vite process helper so
+  Lighthouse and screenshot runners work on Windows without shell-specific
+  `npm` spawning; walkthrough and full E2E runners use the same start path.
+- ✅ Dependencies: update the lockfile within declared ranges, including
+  React Router 7.18.2, and raise the DOMPurify override to 3.4.14.
+- ✅ Tests: cover every primary route, active-page semantics, the skip target,
+  and keyboard tab order in `Layout.test.tsx`.
+
+**Acceptance:** every primary destination remains visible and reachable at
+320 px and wider; keyboard users can bypass repeated navigation; production and
+development dependency audits contain no known vulnerabilities.
+
+**Certification:**
+
+- ✅ `npm run quality` exit 0: typecheck · strict lint · format check · deadcode
+  · zero-vulnerability production audit · 124 tests · production build; one
+  live-only Judge0 test skipped while the sandbox is offline.
+- ✅ `npm audit` exit 0: zero production or development vulnerabilities.
+- ✅ `npm run lighthouse` exit 0: Performance 99 · Accessibility 100 · Best
+  Practices 100.
+- ✅ `npm run screenshots` exit 0: Home, Account, New Puzzle, and Solve captured
+  at 1440 px and 390 px; all eight artifacts visually reviewed.
+- ✅ Live Chrome checks: all four primary routes fit at 320 px and 390 px with
+  no horizontal overflow; skip link receives first keyboard focus.
+
+**Status: ✅ certified.** Live Judge0 execution is unchanged by this UI/tooling
+slice and remains a separate environment-dependent gate.
+
+---
+
+## Polish Slice 3 — repo-owned Judge0 cgroup-v2 runtime ✅
+
+**Goal:** make the real code-execution stack start and pass on current cgroup-v2
+Docker hosts without changing host settings, weakening sandbox limits, or using
+an unreviewed runtime image.
+
+Codable actions:
+
+- ✅ Build from the official Judge0 CE 1.13.1 image pinned by digest and compile
+  official isolate 2.2.1 from a pinned upstream commit.
+- ✅ Keep the Judge0 compatibility delta as reviewable source patches under
+  `docker/judge0/`; delegate the cgroup-v2 CPU, memory, I/O, and PID controllers
+  at startup and fail visibly if any required controller is unavailable.
+- ✅ Use a multi-stage image build; pin PostgreSQL and Redis by digest; wait for
+  database, cache, worker, and API readiness through Compose health checks.
+- ✅ Add regression tests for line endings, service hosts, source pins,
+  multi-stage construction, digest pins, health checks, and isolate's box-ID
+  range.
+- ✅ Map unbounded persisted submission IDs into isolate's supported 0–999 box
+  range, with Judge0's pending queue explicitly capped at 100—safely below the
+  1,000-box namespace even with active workers.
+- ✅ Make full browser certification deterministic without weakening its live
+  execution arm: OpenAI transport is intercepted with valid fixtures, while AI
+  reference-solution QA and player submissions execute in Judge0. Keep an
+  explicit `test:e2e:full:live-ai` command for credentialed provider transport.
+- ✅ Run the repo-owned stack in CI so cgroup-v2 runners enforce live language
+  execution and the complete browser story on every push and pull request.
+
+**Certification:**
+
+- ✅ `docker compose build server` and `npm run judge0:up` exit 0; server,
+  workers, PostgreSQL, and Redis reach healthy/running state.
+- ✅ isolate reports 2.2.1; delegated controllers are `cpu io memory pids`;
+  runtime cgroup root is `/sys/fs/cgroup`.
+- ✅ `npm run verify:judge0`: Python, JavaScript, Ruby, C++, and Go all Accepted.
+- ✅ Long-running-installation regression: the same live check passed starting
+  from persisted submission ID 1015 without resetting PostgreSQL.
+- ✅ `npm run test:e2e`: Echo and Circle Area solved through the browser.
+- ✅ `npm run test:e2e:standard-bank`: all 10 certification puzzles solved.
+- ✅ `npm run test:e2e:full`: 10 built-ins plus 10 deterministic AI puzzles
+  generated, execution-QA'd, solved, and favorited through the browser.
+- ✅ `npm run quality:ci`: 126 tests including all 17 live language stubs;
+  Lighthouse Performance 99, Accessibility 100, Best Practices 100.
+- ✅ `npm run test:coverage`: 97.17% statements, 91.4% branches, 98.73%
+  functions, and 98.26% lines.
+- ✅ `npm run test:e2e:production`: Echo and Circle Area solved from the static
+  production preview using the browser-facing Judge0 URL.
+- ✅ `npm run screenshots`: Home, Account, New Puzzle, Stats, Solve, and Share
+  error states captured and reviewed at desktop and mobile widths.
+
+**Status: ✅ certified.** No host kernel or Docker daemon changes are required.
+
 ## Current certification ledger
 
 | Milestone             | Built | Auto-tested | Certified | Notes                         |
@@ -783,22 +878,18 @@ Codable actions:
 | Puzzle QA 1 Bank      | ✅    | ✅          | ✅        | 164 cases, tier audit         |
 | Optional AI 1         | ✅    | ✅          | ✅        | full standard + AI e2e        |
 | Clash Parity          | ✅    | ✅          | ✅        | reskin + 3 modes + transposer |
+| Polish 2 Responsive   | ✅    | ✅          | ✅        | mobile + a11y + dependencies  |
+| Polish 3 Judge0       | ✅    | ✅          | ✅        | cgroup-v2 live execution      |
 
 **All milestones and completed slices are certified.** Latest full gate:
-`npm run quality` green (typecheck + strict lint + format + deadcode +
-security:audit + **121 tests** + build). `npm audit` green with **0
+`npm run quality:ci` green (typecheck + strict lint + format + deadcode +
+security:audit + **126 tests** + build + Lighthouse). `npm audit` green with **0
 vulnerabilities**. Coverage gate green: 97.17% / 91.4% / 98.73% / 98.26%.
 Lighthouse: Perf 99 · A11y 100 · Best-Practices 100 (SEO excluded). Live
 execution verified: `npm run verify:judge0` 5/5 Accepted; `npm run test:e2e`
 solved Echo (trimmed) and Circle Area (float) end-to-end against Judge0; the
 live transposer test compiled and ran generated stubs for all 17 languages.
 17 languages supported (Zig removed; Java, Kotlin, Bash added).
-
-**Next slice:** optional AI Slice 2 should be all-language generated-puzzle
-certification as a separate nightly/manual gate: sample saved AI puzzles, run
-language-specific reference solutions or generated/verifier-backed solutions
-across every supported Judge0 language, and record failures without slowing
-normal quick play.
 
 **Clash format depth — done** (see Clash Parity Slice): Reverse hides the
 statement and exposes sample input/output for deduction; Shortest scores
@@ -808,14 +899,10 @@ successful submissions by character count and keeps a local best code size.
 
 ## Risks & mitigations
 
-- **Judge0 on macOS/Docker Desktop** needs **cgroup v1** (1.13.1's `isolate`).
-  Modern Docker Desktop defaults to cgroup v2, where every submission returns
-  `Internal Error` (`Failed to create control group …`). Fix applied on this
-  machine: set `deprecatedCgroupv1: true` in Docker Desktop's `settings-store.json`
-  and restart the daemon (`docker info` then reports Cgroup Version: 1). Verified
-  working. The app surfaces an explicit "execution offline" state rather than
-  faking results when the sandbox is unavailable. CI should run Judge0 on a
-  cgroup-v1 Linux host.
-- **Bundle size** (Monaco). → workers load lazily; revisit splitting in M10.
+- **Judge0 sandbox compatibility.** → the repo image pins Judge0 1.13.1 and
+  isolate 2.2.1, keeps its compatibility changes reviewable, verifies the memory
+  controller at startup, and runs live on cgroup v1/v2 in CI and local gates.
+- **Bundle size** (Monaco). → Monaco workers load lazily from the CDN; the static
+  application bundle remains inside the recorded Lighthouse performance gate.
 - **Generated-output drift.** → `generated.ts` is never hand-edited; M2's
   integrity test asserts no drift and each reference solver against its cases.
