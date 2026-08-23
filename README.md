@@ -312,3 +312,9 @@ avoid CORS. In production the browser calls Judge0 directly, so you must:
 - **A language is missing from the dropdown** — your Judge0 image may not ship
   it. The app only lists languages the running Judge0 actually reports, so a
   language compiled into a different image simply won't appear.
+
+## Support this project
+
+If this project saves you time, you can
+[buy me a coffee](https://www.paypal.com/donate/?hosted_button_id=Q9VC7B42R7K82)
+via PayPal. Thank you!
